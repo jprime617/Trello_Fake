@@ -639,7 +639,13 @@ export const Board: React.FC<BoardProps> = ({
             <RefreshCw size={15} />
           </button>
           <button
-            onClick={() => setIsColumnModalOpen(true)}
+            onClick={() => {
+              if (boards.length === 0) {
+                alert('Por favor, crie uma Sprint primeiro antes de adicionar colunas!');
+                return;
+              }
+              setIsColumnModalOpen(true);
+            }}
             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-600/10 active:scale-[0.98] shrink-0"
           >
             Nova Coluna
@@ -681,7 +687,27 @@ export const Board: React.FC<BoardProps> = ({
                   {...provided.droppableProps}
                   className="flex gap-5 h-full items-start pb-4"
                 >
-                  {columns.length > 0 ? (
+                  {boards.length === 0 ? (
+                    <div className="w-full h-[55vh] border border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 text-sm gap-3 bg-zinc-950/10">
+                      <Kanban size={32} className="text-zinc-700 animate-pulse" />
+                      <div className="text-center">
+                        <h3 className="font-semibold text-white mb-1">Nenhuma Sprint neste Projeto</h3>
+                        <p className="text-xs text-zinc-500">Crie uma Sprint (ciclo de entregas) para poder adicionar colunas e tarefas.</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const title = prompt('Qual o nome da nova Sprint? (Ex: Sprint 1)');
+                          if (title && title.trim()) {
+                            const desc = prompt('Descrição do foco da Sprint (Opcional):');
+                            onCreateBoard(title.trim(), desc?.trim() || undefined);
+                          }
+                        }}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95 animate-pulse"
+                      >
+                        Criar primeira Sprint
+                      </button>
+                    </div>
+                  ) : columns.length > 0 ? (
                     columns.map((column, index) => (
                       <Draggable key={column.id} draggableId={column.id} index={index}>
                         {(dragProvided) => (

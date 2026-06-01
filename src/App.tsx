@@ -290,6 +290,15 @@ function App() {
             role: 'owner'
           });
 
+        // Auto-inicializar uma Sprint 1 para o novo projeto
+        await supabase
+          .from('boards')
+          .insert({
+            title: 'Sprint 1',
+            description: 'Primeiro ciclo de entregas e tarefas do projeto',
+            project_id: data.id
+          });
+
         setProjects((prev) => [...prev, data]);
         setActiveProjectId(data.id);
       }
