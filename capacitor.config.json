@@ -1,0 +1,6 @@
+{
+  "appId": "com.trellofake.app",
+  "appName": "Trello Fake",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
