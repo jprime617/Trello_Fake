@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useCustomModal } from './CustomModals';
 import {
   X,
   Trash2,
@@ -17,12 +18,15 @@ import {
   FileArchive,
   Image,
   ExternalLink,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Profile {
   id: string;
   full_name: string;
   email: string;
+  avatar_url?: string;
+  avatar_emoji?: string;
 }
 
 interface Task {
@@ -45,6 +49,14 @@ interface Subtask {
   is_completed: boolean;
 }
 
+interface Comment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
 interface CardModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -64,6 +76,10 @@ interface CardModalProps {
   onToggleSubtask: (subtaskId: string, isCompleted: boolean) => Promise<void>;
   onDeleteSubtask: (subtaskId: string) => Promise<void>;
   userId: string;
+  comments: Comment[];
+  onAddComment: (content: string, taskId: string) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
+  projectLabels: { name: string; color: string }[];
 }
 
 export const CardModal: React.FC<CardModalProps> = ({
@@ -79,7 +95,12 @@ export const CardModal: React.FC<CardModalProps> = ({
   onToggleSubtask,
   onDeleteSubtask,
   userId,
+  comments,
+  onAddComment,
+  onDeleteComment,
+  projectLabels,
 }) => {
+  const { toast, confirm } = useCustomModal();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
@@ -94,6 +115,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('indigo');
+  const [newCommentText, setNewCommentText] = useState('');
 
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -155,9 +177,10 @@ export const CardModal: React.FC<CardModalProps> = ({
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (editingTask && onDelete) {
-      if (window.confirm('Tem certeza que deseja excluir esta tarefa?')) {
+      const isConfirmed = await confirm('Tem certeza que deseja excluir esta tarefa?');
+      if (isConfirmed) {
         onDelete(editingTask.id);
         onClose();
       }
@@ -179,7 +202,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       (lbl) => lbl.name.toLowerCase() === newTagName.trim().toLowerCase()
     );
     if (tagExists) {
-      alert('Esta etiqueta já foi adicionada!');
+      toast('Esta etiqueta já foi adicionada!', 'info');
       return;
     }
     setLabels((prev) => [...prev, { name: newTagName.trim(), color: newTagColor }]);
@@ -189,6 +212,16 @@ export const CardModal: React.FC<CardModalProps> = ({
   // Etiquetas: Remover etiqueta
   const handleRemoveTag = (index: number) => {
     setLabels((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Etiquetas: Alternar etiqueta existente do projeto
+  const handleToggleProjectTag = (clickedTag: { name: string; color: string }) => {
+    const isAlreadyAdded = labels.some((l) => l.name.toLowerCase() === clickedTag.name.toLowerCase());
+    if (isAlreadyAdded) {
+      setLabels((prev) => prev.filter((l) => l.name.toLowerCase() !== clickedTag.name.toLowerCase()));
+    } else {
+      setLabels((prev) => [...prev, clickedTag]);
+    }
   };
 
   // Anexos: Adicionar Link da Web
@@ -208,6 +241,18 @@ export const CardModal: React.FC<CardModalProps> = ({
     setLinkUrl('');
   };
 
+  // Comentários: Enviar comentário
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim() || !editingTask) return;
+    try {
+      await onAddComment(newCommentText.trim(), editingTask.id);
+      setNewCommentText('');
+    } catch (err: any) {
+      toast('Erro ao enviar comentário: ' + err.message, 'error');
+    }
+  };
+
   // Anexos: Upload de Arquivos Físicos (PDF, ZIP, Imagens) para o Supabase Storage
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -215,7 +260,7 @@ export const CardModal: React.FC<CardModalProps> = ({
 
     // Verificar se excede tamanho limite (ex: 20MB)
     if (file.size > 20 * 1024 * 1024) {
-      alert('O arquivo é muito grande! Escolha um arquivo de até 20MB.');
+      toast('O arquivo é muito grande! Escolha um arquivo de até 20MB.', 'error');
       return;
     }
 
@@ -253,7 +298,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       setAttachments((prev) => [...prev, newAttachment]);
     } catch (err: any) {
       console.error('Erro no upload:', err.message);
-      alert('Erro ao fazer upload do arquivo: ' + err.message + '\n\nCertifique-se de que o bucket "attachments" foi criado no Supabase Storage e que o RLS dele permite uploads.');
+      toast('Erro ao fazer upload do arquivo. Certifique-se de que o bucket "attachments" existe.', 'error');
     } finally {
       setUploadingFile(false);
     }
@@ -457,6 +502,35 @@ export const CardModal: React.FC<CardModalProps> = ({
                 </div>
               )}
 
+              {/* Selecionar Etiquetas Existentes no Projeto */}
+              {projectLabels && projectLabels.length > 0 && (
+                <div className="space-y-2 pb-2.5 pt-1 pl-1">
+                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block select-none">
+                    Etiquetas Existentes do Projeto:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {projectLabels.map((lbl, idx) => {
+                      const isSelected = labels.some((l) => l.name.toLowerCase() === lbl.name.toLowerCase());
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleToggleProjectTag(lbl)}
+                          className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                            isSelected
+                              ? `${getTagColorClass(lbl.color)} border-brand-accent/30 shadow-md shadow-brand-accent/5`
+                              : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60'
+                          }`}
+                        >
+                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-sm" />}
+                          <span>{lbl.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Criador de Etiquetas */}
               <div className="flex flex-wrap gap-2 items-center bg-zinc-900/40 border border-zinc-900 p-3 rounded-xl">
                 <input
@@ -540,7 +614,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                         <button
                           type="button"
                           onClick={() => onDeleteSubtask(sub.id)}
-                          className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover\u002fsub:opacity-100 transition-opacity rounded-md"
+                          className="p-1 text-zinc-500 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity rounded-md cursor-pointer"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -704,6 +778,103 @@ export const CardModal: React.FC<CardModalProps> = ({
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* 4. COMENTÁRIOS DA TAREFA */}
+            <div className="space-y-4 border-t border-zinc-900/60 pt-6">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <MessageSquare size={12} className="text-zinc-650" />
+                  <span>Discussão / Comentários</span>
+                </span>
+                {comments.length > 0 && (
+                  <span className="text-[10px] font-extrabold text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-lg border border-zinc-850">
+                    {comments.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Lista de Comentários */}
+              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1 no-scrollbar">
+                {comments.length > 0 ? (
+                  comments.map((comment) => {
+                    const author = profiles.find((p) => p.id === comment.user_id);
+                    const authorName = author ? author.full_name : 'Membro do Grupo';
+                    const authorAvatarUrl = author?.avatar_url;
+                    const authorAvatarEmoji = author?.avatar_emoji;
+                    const getInitials = (n: string) => n.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+
+                    return (
+                      <div
+                        key={comment.id}
+                        className="flex gap-3 p-3 rounded-xl bg-zinc-900/20 border border-zinc-900 hover:border-zinc-850 transition-all group/comm"
+                      >
+                        {/* Avatar */}
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-zinc-800 to-zinc-900 flex items-center justify-center text-white font-bold text-[10px] shadow-inner shrink-0 select-none overflow-hidden">
+                          {authorAvatarUrl ? (
+                            <img src={authorAvatarUrl} alt={authorName} className="w-full h-full object-cover" />
+                          ) : authorAvatarEmoji ? (
+                            <span className="text-sm">{authorAvatarEmoji}</span>
+                          ) : (
+                            <span>{getInitials(authorName)}</span>
+                          )}
+                        </div>
+
+                        {/* Conteúdo */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between leading-none">
+                            <span className="text-xs font-bold text-zinc-200 truncate">{authorName}</span>
+                            <span className="text-[9px] text-zinc-650 font-medium">
+                              {new Date(comment.created_at).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-400 font-light mt-1.5 whitespace-pre-wrap leading-relaxed">
+                            {comment.content}
+                          </p>
+                        </div>
+
+                        {/* Excluir se for o dono */}
+                        {comment.user_id === userId && (
+                          <button
+                            type="button"
+                            onClick={() => confirm('Deseja realmente excluir este comentário?')
+                              .then((ans) => { if (ans) onDeleteComment(comment.id); })}
+                            className="p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover/comm:opacity-100 transition-opacity rounded-md self-start"
+                            title="Excluir comentário"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-[11px] text-zinc-600 pl-2">Nenhum comentário ainda. Comece a discussão!</p>
+                )}
+              </div>
+
+              {/* Formulário para comentar */}
+              <form onSubmit={handleCommentSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Adicionar um comentário..."
+                  required
+                  value={newCommentText}
+                  onChange={(e) => setNewCommentText(e.target.value)}
+                  className="px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent text-xs font-semibold flex-1"
+                />
+                <button
+                  type="submit"
+                  className="px-3.5 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <span>Comentar</span>
+                </button>
+              </form>
             </div>
 
           </div>

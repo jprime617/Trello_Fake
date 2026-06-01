@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { supabase } from '../lib/supabase';
 import { ColumnContainer } from './ColumnContainer';
 import { CardModal } from './CardModal';
 import { ColumnModal } from './ColumnModal';
 import { Kanban, Sparkles, Loader2, RefreshCw, Plus } from 'lucide-react';
+import { useCustomModal } from './CustomModals';
 
 interface Profile {
   id: string;
   full_name: string;
   email: string;
+  avatar_url?: string;
+  avatar_emoji?: string;
 }
 
 interface Column {
@@ -39,6 +42,14 @@ interface Subtask {
   is_completed: boolean;
 }
 
+interface Comment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
 interface BoardData {
   id: string;
   title: string;
@@ -63,6 +74,7 @@ interface BoardProps {
   projectMembers?: Profile[];
   filterAssigneeId?: string;
   setFilterAssigneeId?: (id: string) => void;
+  boardBackground?: string;
 }
 
 export const Board: React.FC<BoardProps> = ({
@@ -82,15 +94,36 @@ export const Board: React.FC<BoardProps> = ({
   projectMembers = [],
   filterAssigneeId = '',
   setFilterAssigneeId = () => {},
+  boardBackground = 'zinc',
 }) => {
+  const { toast, confirm, prompt } = useCustomModal();
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  // Coletar todas as etiquetas únicas presentes nas tarefas do quadro para reutilização
+  const projectLabels = useMemo(() => {
+    const labelMap = new Map<string, string>();
+    tasks.forEach((task) => {
+      if (task.labels && Array.isArray(task.labels)) {
+        task.labels.forEach((l) => {
+          if (l && l.name && l.name.trim()) {
+            labelMap.set(l.name.trim().toLowerCase(), l.color);
+          }
+        });
+      }
+    });
+    return Array.from(labelMap.entries()).map(([name, color]) => ({
+      name,
+      color,
+    }));
+  }, [tasks]);
 
   // 1. Carregar todos os dados dependentes da Sprint selecionada
   const fetchData = async () => {
@@ -144,6 +177,13 @@ export const Board: React.FC<BoardProps> = ({
         .select('*');
       if (subtaskErr) throw subtaskErr;
       setSubtasks((subtaskData || []) as Subtask[]);
+
+      // Carregar todos os Comentários
+      const { data: commentsData, error: commentsErr } = await supabase
+        .from('comments')
+        .select('*');
+      if (commentsErr) throw commentsErr;
+      setComments((commentsData || []) as Comment[]);
     } catch (error: any) {
       console.error('Erro ao carregar dados:', error.message);
     } finally {
@@ -297,10 +337,32 @@ export const Board: React.FC<BoardProps> = ({
       )
       .subscribe();
 
+    // Inscrição em tempo real para comentários
+    const commentsSubscription = supabase
+      .channel('comments-realtime-board')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newComment = payload.new as Comment;
+            setComments((prev) => {
+              if (prev.some((c) => c.id === newComment.id)) return prev;
+              return [...prev, newComment];
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const deletedComment = payload.old as { id: string };
+            setComments((prev) => prev.filter((c) => c.id !== deletedComment.id));
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(columnsSubscription);
       supabase.removeChannel(tasksSubscription);
       supabase.removeChannel(subtasksSubscription);
+      supabase.removeChannel(commentsSubscription);
     };
   }, [activeBoardId]);
 
@@ -456,7 +518,7 @@ export const Board: React.FC<BoardProps> = ({
         if (error) throw error;
       }
     } catch (err: any) {
-      alert('Erro ao salvar coluna: ' + err.message);
+      toast('Erro ao salvar coluna: ' + err.message, 'error');
     } finally {
       setEditingColumn(null);
     }
@@ -464,12 +526,14 @@ export const Board: React.FC<BoardProps> = ({
 
   // 6. Excluir Coluna
   const handleDeleteColumn = async (columnId: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta coluna e todas as suas tarefas?')) {
+    const isConfirmed = await confirm('Tem certeza que deseja excluir esta coluna e todas as suas tarefas?');
+    if (isConfirmed) {
       try {
         const { error } = await supabase.from('columns').delete().eq('id', columnId);
         if (error) throw error;
+        toast('Coluna excluída com sucesso!', 'success');
       } catch (err: any) {
-        alert('Erro ao excluir coluna: ' + err.message);
+        toast('Erro ao excluir coluna: ' + err.message, 'error');
       }
     }
   };
@@ -513,7 +577,7 @@ export const Board: React.FC<BoardProps> = ({
         if (error) throw error;
       }
     } catch (err: any) {
-      alert('Erro ao salvar tarefa: ' + err.message);
+      toast('Erro ao salvar tarefa: ' + err.message, 'error');
     } finally {
       setEditingTask(null);
       setSelectedColumnId(undefined);
@@ -525,8 +589,9 @@ export const Board: React.FC<BoardProps> = ({
     try {
       const { error } = await supabase.from('tasks').delete().eq('id', taskId);
       if (error) throw error;
+      toast('Tarefa excluída com sucesso!', 'success');
     } catch (err: any) {
-      alert('Erro ao excluir tarefa: ' + err.message);
+      toast('Erro ao excluir tarefa: ' + err.message, 'error');
     } finally {
       setEditingTask(null);
     }
@@ -545,7 +610,7 @@ export const Board: React.FC<BoardProps> = ({
         setSubtasks((prev) => [...prev, data as Subtask]);
       }
     } catch (err: any) {
-      alert('Erro ao adicionar subtarefa: ' + err.message);
+      toast('Erro ao adicionar subtarefa: ' + err.message, 'error');
     }
   };
 
@@ -561,7 +626,7 @@ export const Board: React.FC<BoardProps> = ({
         .eq('id', subtaskId);
       if (error) throw error;
     } catch (err: any) {
-      alert('Erro ao atualizar subtarefa: ' + err.message);
+      toast('Erro ao atualizar subtarefa: ' + err.message, 'error');
     }
   };
 
@@ -574,17 +639,61 @@ export const Board: React.FC<BoardProps> = ({
         .delete().eq('id', subtaskId);
       if (error) throw error;
     } catch (err: any) {
-      alert('Erro ao excluir subtarefa: ' + err.message);
+      toast('Erro ao excluir subtarefa: ' + err.message, 'error');
     }
   };
 
+  // 10. Handlers para Comentários
+  const handleAddComment = async (content: string, taskId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .insert({
+          task_id: taskId,
+          user_id: userId,
+          content
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        setComments((prev) => [...prev, data as Comment]);
+      }
+    } catch (err: any) {
+      toast('Erro ao adicionar comentário: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId);
+      if (error) throw error;
+    } catch (err: any) {
+      toast('Erro ao excluir comentário: ' + err.message, 'error');
+    }
+  };
+
+  const bgClasses: Record<string, string> = {
+    zinc: 'bg-zinc-950',
+    sunset: 'bg-gradient-to-tr from-purple-950/60 via-zinc-950 to-pink-950/20',
+    ocean: 'bg-gradient-to-tr from-blue-950/60 via-zinc-950 to-cyan-950/20',
+    aurora: 'bg-gradient-to-tr from-emerald-950/60 via-zinc-950 to-teal-950/20',
+    cosmic: 'bg-gradient-to-tr from-violet-950/60 via-zinc-950 to-indigo-950/20',
+  };
+  const boardBgClass = bgClasses[boardBackground] || bgClasses.zinc;
+
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-brand-bg relative pb-16 lg:pb-0 h-screen overflow-hidden">
+    <div className={`flex-1 flex flex-col min-w-0 ${boardBgClass} relative pb-16 lg:pb-0 h-screen overflow-hidden`}>
       {/* Top Header Panel */}
       <header className="h-16 border-b border-zinc-800/80 px-6 flex items-center justify-between bg-zinc-950/40 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <div className="w-8 h-8 rounded-lg bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent">
               <Kanban size={16} />
             </div>
             <div>
@@ -605,7 +714,7 @@ export const Board: React.FC<BoardProps> = ({
               <select
                 value={activeBoardId}
                 onChange={(e) => setActiveBoardId(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-indigo-400 transition-colors pr-4 py-0.5"
+                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-brand-accent transition-colors pr-4 py-0.5"
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id} className="bg-zinc-950 text-white">
@@ -614,10 +723,10 @@ export const Board: React.FC<BoardProps> = ({
                 ))}
               </select>
               <button
-                onClick={() => {
-                  const title = prompt('Qual o nome da nova Sprint? (Ex: Sprint 2)');
+                onClick={async () => {
+                  const title = await prompt('Qual o nome da nova Sprint?', 'Ex: Sprint 2');
                   if (title && title.trim()) {
-                    const desc = prompt('Descrição do foco da Sprint (Opcional):');
+                    const desc = await prompt('Descrição da Sprint (Opcional):', 'Foco ou objetivos desta sprint');
                     onCreateBoard(title.trim(), desc?.trim() || undefined);
                   }
                 }}
@@ -641,12 +750,12 @@ export const Board: React.FC<BoardProps> = ({
           <button
             onClick={() => {
               if (boards.length === 0) {
-                alert('Por favor, crie uma Sprint primeiro antes de adicionar colunas!');
+                toast('Por favor, crie uma Sprint primeiro antes de adicionar colunas!', 'info');
                 return;
               }
               setIsColumnModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-indigo-600/10 active:scale-[0.98] shrink-0"
+            className="px-3.5 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] shrink-0"
           >
             Nova Coluna
           </button>
@@ -655,16 +764,16 @@ export const Board: React.FC<BoardProps> = ({
 
       {/* Banner de Filtro de Participante */}
       {filterAssigneeId && (
-        <div className="mx-6 mb-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/25 rounded-xl flex items-center justify-between text-xs text-indigo-300 font-semibold select-none animate-fadeIn">
+        <div className="mx-6 mb-2 px-4 py-2 bg-brand-accent/10 border border-brand-accent/25 rounded-xl flex items-center justify-between text-xs text-brand-accent font-semibold select-none animate-fadeIn">
           <span className="flex items-center gap-2">
-            <Sparkles size={14} className="text-indigo-400 animate-pulse" />
+            <Sparkles size={14} className="text-brand-accent animate-pulse" />
             <span>
               Filtrando tarefas de: <strong>{profiles.find((p) => p.id === filterAssigneeId)?.full_name || 'Usuário'}</strong>
             </span>
           </span>
           <button
             onClick={() => setFilterAssigneeId('')}
-            className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 transition-all text-[10px] font-bold active:scale-95 border border-indigo-500/20 hover:border-indigo-500/35"
+            className="px-2.5 py-1 rounded-lg bg-brand-accent/20 hover:bg-brand-accent/35 text-white transition-all text-[10px] font-bold active:scale-95 border border-brand-accent/20 hover:border-brand-accent/35"
           >
             Limpar Filtro
           </button>
@@ -695,14 +804,14 @@ export const Board: React.FC<BoardProps> = ({
                         <p className="text-xs text-zinc-500">Crie uma Sprint (ciclo de entregas) para poder adicionar colunas e tarefas.</p>
                       </div>
                       <button
-                        onClick={() => {
-                          const title = prompt('Qual o nome da nova Sprint? (Ex: Sprint 1)');
+                        onClick={async () => {
+                          const title = await prompt('Qual o nome da nova Sprint?', 'Ex: Sprint 1');
                           if (title && title.trim()) {
-                            const desc = prompt('Descrição do foco da Sprint (Opcional):');
+                            const desc = await prompt('Descrição da Sprint (Opcional):', 'Foco ou objetivos desta sprint');
                             onCreateBoard(title.trim(), desc?.trim() || undefined);
                           }
                         }}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95 animate-pulse"
+                        className="px-4 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95 animate-pulse"
                       >
                         Criar primeira Sprint
                       </button>
@@ -752,7 +861,7 @@ export const Board: React.FC<BoardProps> = ({
                       </div>
                       <button
                         onClick={() => setIsColumnModalOpen(true)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95"
+                        className="px-4 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-semibold transition-all shadow-md active:scale-95"
                       >
                         Criar primeira coluna
                       </button>
@@ -794,6 +903,10 @@ export const Board: React.FC<BoardProps> = ({
         onToggleSubtask={handleToggleSubtask}
         onDeleteSubtask={handleDeleteSubtask}
         userId={userId}
+        comments={comments.filter((c) => editingTask && c.task_id === editingTask.id)}
+        onAddComment={handleAddComment}
+        onDeleteComment={handleDeleteComment}
+        projectLabels={projectLabels}
       />
     </div>
   );

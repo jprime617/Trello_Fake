@@ -6,6 +6,8 @@ interface Profile {
   id: string;
   full_name: string;
   email: string;
+  avatar_emoji?: string;
+  avatar_url?: string;
 }
 
 interface Task {
@@ -265,8 +267,14 @@ export const CardItem: React.FC<CardItemProps> = ({
                 title={assignee.full_name}
                 className="flex items-center gap-1.5 shrink-0"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500/80 to-purple-600/80 text-white flex items-center justify-center font-bold text-[9px] border border-zinc-800/80">
-                  {getInitials(assignee.full_name)}
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500/80 to-purple-600/80 text-white flex items-center justify-center font-bold text-[9px] border border-zinc-800/80 overflow-hidden select-none">
+                  {assignee.avatar_url ? (
+                    <img src={assignee.avatar_url} alt={assignee.full_name} className="w-full h-full object-cover" />
+                  ) : assignee.avatar_emoji ? (
+                    assignee.avatar_emoji
+                  ) : (
+                    getInitials(assignee.full_name)
+                  )}
                 </div>
               </div>
             ) : (

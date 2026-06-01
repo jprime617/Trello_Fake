@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useCustomModal } from './CustomModals';
 import { Kanban, Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
@@ -7,6 +8,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
+  const { toast } = useCustomModal();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +41,7 @@ export const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
         if (signUpError) throw signUpError;
         
         // Exibir mensagem indicando sucesso de criação ou login automático
-        alert('Cadastro realizado com sucesso! Faça login com suas credenciais.');
+        toast('Cadastro realizado com sucesso! Faça login com suas credenciais.', 'success');
         setIsRegister(false);
         setPassword('');
       } else {

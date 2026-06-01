@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
 import { LogOut, Plus, FolderKanban, Bell } from 'lucide-react';
+import { useCustomModal } from './CustomModals';
 
 interface Board {
   id: string;
@@ -8,7 +9,7 @@ interface Board {
 }
 
 interface BottomNavProps {
-  userProfile: { full_name: string } | null;
+  userProfile: { full_name: string; avatar_emoji?: string; avatar_url?: string } | null;
   onLogout: () => void;
   onAddColumnClick: () => void;
   onAddTaskClick: () => void;
@@ -26,6 +27,7 @@ interface BottomNavProps {
   activeProjectId: string;
   setActiveProjectId: (id: string) => void;
   onCreateProject: (title: string, description?: string) => void;
+  onOpenProfileSettings: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -36,7 +38,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   projects = [],
   activeProjectId,
   setActiveProjectId,
+  onOpenProfileSettings,
 }) => {
+  const { toast, confirm } = useCustomModal();
   const getInitials = (name: string) => {
     if (!name) return 'U';
     return name
@@ -48,7 +52,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   const handleSignOut = async () => {
-    if (window.confirm('Deseja realmente sair?')) {
+    const isConfirmed = await confirm('Deseja realmente sair do sistema?');
+    if (isConfirmed) {
       await supabase.auth.signOut();
       onLogout();
     }
@@ -56,21 +61,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const handleAlertsClick = () => {
     if (alerts.length === 0) {
-      alert('Tudo certo! Nenhuma tarefa está próxima do vencimento.');
+      toast('Tudo certo! Nenhuma tarefa está próxima do vencimento.', 'success');
       return;
     }
 
-    const alertListStr = alerts
-      .map((a, idx) => `${idx + 1}. ${a.title} (${a.due_date}) [Prioridade: ${a.priority === 'high' ? 'Alta' : 'Normal'}]`)
-      .join('\n');
-    
-    alert(`🚨 TAREFAS EXPIRANDO EM BREVE:\n\n${alertListStr}`);
+    toast(`Existem ${alerts.length} tarefas próximas do vencimento! Verifique no painel de alertas do seu computador.`, 'info');
   };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 h-16 bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-lg flex items-center justify-around px-4 z-40 lg:hidden pb-safe">
       {/* Mobile Project Selector Overlay Trigger */}
-      <div className="flex flex-col items-center justify-center text-indigo-400 relative cursor-pointer min-w-[60px] h-full">
+      <div className="flex flex-col items-center justify-center text-brand-accent relative cursor-pointer min-w-[60px] h-full">
         <FolderKanban size={20} />
         <span className="text-[10px] mt-1 font-semibold">Projetos</span>
         {projects.length > 0 && (
@@ -102,23 +103,36 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         )}
       </button>
 
-      {/* Main Indigo Action (Add Task) */}
+      {/* Main Brand Action (Add Task) */}
       <button
         onClick={onAddTaskClick}
-        className="w-12 h-12 rounded-full bg-indigo-600 border border-indigo-500/50 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 transform -translate-y-3 transition-transform duration-200 active:scale-95"
+        className="w-12 h-12 rounded-full bg-brand-accent border border-brand-accent/50 flex items-center justify-center text-white shadow-lg shadow-brand-accent/30 transform -translate-y-3 transition-transform duration-200 active:scale-95"
       >
         <Plus size={24} />
       </button>
 
-      {/* Current User Info */}
-      <div className="flex flex-col items-center justify-center min-w-[60px] h-full">
-        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-[10px] shadow-sm">
-          {userProfile ? getInitials(userProfile.full_name) : 'U'}
+      {/* Current User Info (opens customization panel) */}
+      <button
+        onClick={onOpenProfileSettings}
+        className="flex flex-col items-center justify-center min-w-[60px] h-full"
+      >
+        <div className="w-6 h-6 rounded-full bg-brand-accent flex items-center justify-center text-white font-bold text-[11px] shadow-sm select-none overflow-hidden">
+          {userProfile ? (
+            userProfile.avatar_url ? (
+              <img src={userProfile.avatar_url} alt={userProfile.full_name} className="w-full h-full object-cover" />
+            ) : userProfile.avatar_emoji ? (
+              userProfile.avatar_emoji
+            ) : (
+              getInitials(userProfile.full_name)
+            )
+          ) : (
+            'U'
+          )}
         </div>
         <span className="text-[10px] mt-1 font-semibold text-zinc-400 truncate max-w-[50px]">
           {userProfile ? userProfile.full_name.split(' ')[0] : 'Grupo'}
         </span>
-      </div>
+      </button>
 
       {/* Logout Action */}
       <button

@@ -4,6 +4,8 @@ import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
 import { Board } from './components/Board';
+import { useCustomModal } from './components/CustomModals';
+import { ProfileSettingsModal } from './components/ProfileSettingsModal';
 import { Loader2 } from 'lucide-react';
 
 interface Profile {
@@ -12,6 +14,10 @@ interface Profile {
   email: string;
   avatar_url?: string;
   role?: string;
+  avatar_emoji?: string;
+  theme_color?: string;
+  board_background?: string;
+  bio?: string;
 }
 
 interface Project {
@@ -31,6 +37,7 @@ interface BoardData {
 }
 
 function App() {
+  const { toast, confirm } = useCustomModal();
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -57,6 +64,7 @@ function App() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Carregar o perfil do usuário logado
   const fetchUserProfile = async (userId: string) => {
@@ -244,7 +252,7 @@ function App() {
   // Criar nova Sprint
   const handleCreateBoard = async (title: string, description?: string) => {
     if (!activeProjectId) {
-      alert('Selecione ou crie um projeto primeiro!');
+      toast('Selecione ou crie um projeto primeiro!', 'info');
       return;
     }
     try {
@@ -261,7 +269,7 @@ function App() {
         setActiveBoardId(data.id);
       }
     } catch (err: any) {
-      alert('Erro ao criar Sprint: ' + err.message);
+      toast('Erro ao criar Sprint: ' + err.message, 'error');
     }
   };
 
@@ -303,7 +311,7 @@ function App() {
         setActiveProjectId(data.id);
       }
     } catch (err: any) {
-      alert('Erro ao criar projeto: ' + err.message);
+      toast('Erro ao criar projeto: ' + err.message, 'error');
     }
   };
 
@@ -318,7 +326,7 @@ function App() {
         .single();
 
       if (profileError || !profileData) {
-        alert('Nenhum usuário cadastrado com este e-mail. Peça para ele se cadastrar primeiro!');
+        toast('Nenhum usuário cadastrado com este e-mail. Peça para ele se cadastrar primeiro!', 'error');
         return false;
       }
 
@@ -332,7 +340,7 @@ function App() {
 
       if (insertError) {
         if (insertError.code === '23505') {
-          alert('Este usuário já faz parte deste projeto!');
+          toast('Este usuário já faz parte deste projeto!', 'info');
         } else {
           throw insertError;
         }
@@ -340,10 +348,10 @@ function App() {
       }
 
       fetchProjectMembers(activeProjectId);
-      alert(`${profileData.full_name} foi adicionado ao projeto com sucesso!`);
+      toast(`${profileData.full_name} foi adicionado ao projeto com sucesso!`, 'success');
       return true;
     } catch (err: any) {
-      alert('Erro ao adicionar participante: ' + err.message);
+      toast('Erro ao adicionar participante: ' + err.message, 'error');
       return false;
     }
   };
@@ -353,11 +361,12 @@ function App() {
     if (!activeProjectId) return;
     const project = projects.find((p) => p.id === activeProjectId);
     if (project?.created_by === memberUserId) {
-      alert('O proprietário/criador do projeto não pode ser removido.');
+      toast('O proprietário/criador do projeto não pode ser removido.', 'error');
       return;
     }
 
-    if (window.confirm('Tem certeza que deseja remover este participante do projeto?')) {
+    const isConfirmed = await confirm('Tem certeza que deseja remover este participante do projeto?');
+    if (isConfirmed) {
       try {
         const { error } = await supabase
           .from('project_members')
@@ -367,11 +376,30 @@ function App() {
 
         if (error) throw error;
         fetchProjectMembers(activeProjectId);
+        toast('Membro removido com sucesso!', 'success');
       } catch (err: any) {
-        alert('Erro ao remover participante: ' + err.message);
+        toast('Erro ao remover participante: ' + err.message, 'error');
       }
     }
   };
+
+  // Aplicar tema de cores global ao carregar o perfil
+  useEffect(() => {
+    if (profile) {
+      const themeColor = profile.theme_color || 'indigo';
+      const colors: Record<string, { hex: string; hoverHex: string }> = {
+        indigo: { hex: '#6366f1', hoverHex: '#4f46e5' },
+        emerald: { hex: '#10b981', hoverHex: '#059669' },
+        rose: { hex: '#f43f5e', hoverHex: '#e11d48' },
+        amber: { hex: '#f59e0b', hoverHex: '#d97706' },
+        sky: { hex: '#0ea5e9', hoverHex: '#0284c7' },
+        violet: { hex: '#8b5cf6', hoverHex: '#7c3aed' },
+      };
+      const selected = colors[themeColor] || colors.indigo;
+      document.documentElement.style.setProperty('--color-brand-accent', selected.hex);
+      document.documentElement.style.setProperty('--color-brand-accent-hover', selected.hoverHex);
+    }
+  }, [profile]);
 
   // Carregar e sincronizar dados ao mudar de projeto ativo
   useEffect(() => {
@@ -550,6 +578,7 @@ function App() {
         allProfiles={allProfiles}
         filterAssigneeId={filterAssigneeId}
         setFilterAssigneeId={setFilterAssigneeId}
+        onOpenProfileSettings={() => setIsProfileModalOpen(true)}
       />
 
       {/* Main Board view */}
@@ -570,6 +599,7 @@ function App() {
         projectMembers={projectMembers}
         filterAssigneeId={filterAssigneeId}
         setFilterAssigneeId={setFilterAssigneeId}
+        boardBackground={profile?.board_background}
       />
 
       {/* Mobile Bottom Navigation (visível apenas em dispositivos móveis) */}
@@ -591,6 +621,16 @@ function App() {
         activeProjectId={activeProjectId}
         setActiveProjectId={setActiveProjectId}
         onCreateProject={handleCreateProject}
+        onOpenProfileSettings={() => setIsProfileModalOpen(true)}
+      />
+
+      {/* Modal de Configurações de Perfil */}
+      <ProfileSettingsModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userProfile={profile}
+        onProfileUpdate={() => profile && fetchUserProfile(profile.id)}
+        userId={session.user.id}
       />
     </div>
   );

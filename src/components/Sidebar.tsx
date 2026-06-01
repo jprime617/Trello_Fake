@@ -1,5 +1,6 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
+import { useCustomModal } from './CustomModals';
 import {
   Kanban,
   LogOut,
@@ -22,7 +23,7 @@ interface Board {
 }
 
 interface SidebarProps {
-  userProfile: { full_name: string; email: string } | null;
+  userProfile: { full_name: string; email: string; avatar_emoji?: string; theme_color?: string; avatar_url?: string } | null;
   onLogout: () => void;
   onAddColumnClick: () => void;
   onAddTaskClick: () => void;
@@ -47,6 +48,7 @@ interface SidebarProps {
   allProfiles: any[];
   filterAssigneeId: string;
   setFilterAssigneeId: (id: string) => void;
+  onOpenProfileSettings: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -69,7 +71,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   allProfiles = [],
   filterAssigneeId,
   setFilterAssigneeId,
+  onOpenProfileSettings,
 }) => {
+  const { confirm, prompt } = useCustomModal();
+  
   // Estado para controlar a abertura da caixa de seleção e o usuário selecionado
   const [isAddingMember, setIsAddingMember] = React.useState(false);
   const [selectedMemberEmail, setSelectedMemberEmail] = React.useState('');
@@ -89,16 +94,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSignOut = async () => {
-    if (window.confirm('Deseja realmente sair?')) {
+    const isConfirmed = await confirm('Deseja realmente sair da sua conta?');
+    if (isConfirmed) {
       await supabase.auth.signOut();
       onLogout();
     }
   };
 
-  const handleCreateSprint = () => {
-    const title = prompt('Qual o nome da nova Sprint? (Ex: Sprint 2 - Banco de Dados)');
+  const handleCreateSprint = async () => {
+    const title = await prompt('Qual o nome da nova Sprint?', 'Ex: Sprint 2 - Banco de Dados');
     if (title && title.trim()) {
-      const desc = prompt('Descrição do foco da Sprint (Opcional):');
+      const desc = await prompt('Descrição da Sprint (Opcional):', 'Foco ou objetivos desta sprint');
       onCreateBoard(title.trim(), desc?.trim() || undefined);
     }
   };
@@ -121,11 +127,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-68 bg-zinc-950 border-r border-zinc-800/80 flex flex-col h-screen shrink-0 hidden lg:flex">
       {/* Brand Header */}
       <div className="p-5 border-b border-zinc-800/80 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+        <div className="w-8 h-8 rounded-lg bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent">
           <Kanban size={18} />
         </div>
         <span className="text-lg font-bold text-white tracking-tight">
-          Trello<span className="text-indigo-400">Fake</span>
+          Trello<span className="text-brand-accent">Fake</span>
         </span>
       </div>
 
@@ -139,10 +145,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Meus Projetos</span>
             </span>
             <button
-              onClick={() => {
-                const title = prompt('Qual o nome do novo Projeto?');
+              onClick={async () => {
+                const title = await prompt('Qual o nome do novo Projeto?', 'Digite o título do projeto');
                 if (title && title.trim()) {
-                  const desc = prompt('Descrição do Projeto (Opcional):');
+                  const desc = await prompt('Descrição do Projeto (Opcional):', 'Digite uma breve descrição');
                   onCreateProject(title.trim(), desc?.trim() || undefined);
                 }
               }}
@@ -157,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <select
               value={activeProjectId}
               onChange={(e) => setActiveProjectId(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl py-2 px-3 focus:outline-none focus:border-indigo-500/80 cursor-pointer"
+              className="w-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl py-2 px-3 focus:outline-none focus:border-brand-accent/80 cursor-pointer"
             >
               {projects.map((proj) => (
                 <option key={proj.id} value={proj.id}>
@@ -194,11 +200,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => setActiveBoardId(b.id)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left ${
                       isActive
-                        ? 'bg-indigo-600/10 border border-indigo-500/30 text-indigo-200'
+                        ? 'bg-brand-accent/10 border border-brand-accent/30 text-white'
                         : 'border border-transparent text-zinc-400 hover:text-white hover:bg-zinc-900/60'
                     }`}
                   >
-                    <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-indigo-400 animate-pulse' : 'bg-zinc-700'}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-brand-accent animate-pulse' : 'bg-zinc-700'}`} />
                     <span className="truncate flex-1">{b.title}</span>
                   </button>
                 );
@@ -240,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <select
                     value={selectedMemberEmail}
                     onChange={(e) => setSelectedMemberEmail(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 text-[11px] font-semibold text-white rounded-lg py-1.5 px-2 focus:outline-none focus:border-indigo-500/80 cursor-pointer"
+                    className="w-full bg-zinc-950 border border-zinc-800 text-[11px] font-semibold text-white rounded-lg py-1.5 px-2 focus:outline-none focus:border-brand-accent/80 cursor-pointer"
                   >
                     {nonMembers.map((p) => (
                       <option key={p.id} value={p.email}>
@@ -259,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }
                         }
                       }}
-                      className="flex-1 py-1 rounded-md bg-indigo-605 hover:bg-indigo-600 text-white text-[10px] font-bold transition-all active:scale-95"
+                      className="flex-1 py-1 rounded-md bg-brand-accent hover:bg-brand-accent-hover text-white text-[10px] font-bold transition-all active:scale-95"
                     >
                       Adicionar
                     </button>
@@ -304,15 +310,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={isFiltered ? "Clique para limpar filtro" : "Clique para ver apenas as tarefas deste participante"}
                   className={`group/member flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none ${
                     isFiltered
-                      ? 'bg-indigo-600/15 border-indigo-500/45 text-indigo-200 shadow-sm shadow-indigo-500/5'
+                      ? 'bg-brand-accent/15 border-brand-accent/30 text-white shadow-sm shadow-brand-accent/5'
                       : 'border-zinc-900 bg-zinc-950/20 hover:bg-zinc-900/30'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold uppercase transition-all ${
                       isFiltered
-                        ? 'bg-gradient-to-tr from-indigo-500 to-purple-600 text-white border border-indigo-400/20'
-                        : 'bg-gradient-to-tr from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 text-indigo-300'
+                        ? 'bg-brand-accent text-white'
+                        : 'bg-brand-accent/20 border border-brand-accent/30 text-brand-accent'
                     }`}>
                       {member.full_name ? member.full_name[0] : 'U'}
                     </div>
@@ -418,8 +424,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* User Footer Profile */}
       <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/50 shrink-0">
         <div className="flex items-center gap-3 p-2 rounded-xl bg-zinc-900/60 border border-zinc-800/50">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shadow-md shrink-0">
-            {userProfile ? getInitials(userProfile.full_name) : <User size={18} />}
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg shadow-md shrink-0 select-none overflow-hidden">
+            {userProfile ? (
+              userProfile.avatar_url ? (
+                <img src={userProfile.avatar_url} alt={userProfile.full_name} className="w-full h-full object-cover" />
+              ) : userProfile.avatar_emoji ? (
+                userProfile.avatar_emoji
+              ) : (
+                getInitials(userProfile.full_name)
+              )
+            ) : (
+              <User size={18} />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-semibold text-white truncate">
@@ -429,6 +445,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {userProfile ? userProfile.email : ''}
             </p>
           </div>
+          <button
+            onClick={onOpenProfileSettings}
+            title="Customizar Aparência & Perfil"
+            className="p-2 rounded-lg text-zinc-500 hover:text-brand-accent hover:bg-zinc-800/50 transition-all shrink-0"
+          >
+            <Settings2 size={16} />
+          </button>
           <button
             onClick={handleSignOut}
             title="Sair da Conta"
