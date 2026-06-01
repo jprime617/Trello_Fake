@@ -18,40 +18,56 @@ interface Task {
   due_date?: string;
   priority: 'low' | 'medium' | 'high';
   position: number;
+  labels: { name: string; color: string }[];
+  attachments: { name: string; url: string; type: string }[];
 }
 
 interface Column {
   id: string;
   title: string;
   position: number;
+  board_id: string;
+}
+
+interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  is_completed: boolean;
 }
 
 interface ColumnContainerProps {
   column: Column;
   tasks: Task[];
   profiles: Profile[];
+  subtasks: Subtask[];
   onCardClick: (task: Task) => void;
   onAddTaskClick: (columnId: string) => void;
   onEditColumnClick: (column: Column) => void;
   onDeleteColumnClick: (columnId: string) => void;
+  dragHandleProps?: any;
 }
 
 export const ColumnContainer: React.FC<ColumnContainerProps> = ({
   column,
   tasks,
   profiles,
+  subtasks,
   onCardClick,
   onAddTaskClick,
   onEditColumnClick,
   onDeleteColumnClick,
+  dragHandleProps,
 }) => {
-  // Ordenar tarefas por posição
   const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
 
   return (
     <div className="w-[300px] shrink-0 bg-zinc-950/40 border border-zinc-800/60 rounded-2xl flex flex-col max-h-[82vh] overflow-hidden shadow-xl snap-center relative">
       {/* Column Header */}
-      <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between gap-3 bg-zinc-950/80">
+      <div
+        {...dragHandleProps}
+        className="p-4 border-b border-zinc-800/80 flex items-center justify-between gap-3 bg-zinc-950/80 cursor-grab active:cursor-grabbing select-none"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="font-semibold text-white truncate text-sm">
             {column.title}
@@ -96,7 +112,8 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
                   task={task}
                   index={index}
                   profiles={profiles}
-                  onCardClick={onCardClick}
+                  subtasks={subtasks.filter((s) => s.task_id === task.id)}
+                  onCardClick={onCardClick as any}
                 />
               ))
             ) : (
