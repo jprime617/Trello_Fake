@@ -40,6 +40,7 @@ function App() {
   const [activeProjectId, setActiveProjectId] = useState<string>('');
   const [projectMembers, setProjectMembers] = useState<Profile[]>([]);
   const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [filterAssigneeId, setFilterAssigneeId] = useState<string>('');
 
   // Estados para gerenciar múltiplos quadros (Sprints)
   const [boards, setBoards] = useState<BoardData[]>([]);
@@ -368,6 +369,7 @@ function App() {
     if (activeProjectId) {
       fetchBoards(activeProjectId);
       fetchProjectMembers(activeProjectId);
+      setFilterAssigneeId('');
     }
   }, [activeProjectId]);
 
@@ -537,6 +539,8 @@ function App() {
         onAddProjectMember={handleAddProjectMember}
         onRemoveProjectMember={handleRemoveProjectMember}
         allProfiles={allProfiles}
+        filterAssigneeId={filterAssigneeId}
+        setFilterAssigneeId={setFilterAssigneeId}
       />
 
       {/* Main Board view */}
@@ -555,6 +559,8 @@ function App() {
         userId={session.user.id}
         onAlertsCalculated={setAlerts}
         projectMembers={projectMembers}
+        filterAssigneeId={filterAssigneeId}
+        setFilterAssigneeId={setFilterAssigneeId}
       />
 
       {/* Mobile Bottom Navigation (visível apenas em dispositivos móveis) */}

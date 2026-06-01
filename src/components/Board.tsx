@@ -61,6 +61,8 @@ interface BoardProps {
   userId: string;
   onAlertsCalculated: (alerts: any[]) => void;
   projectMembers?: Profile[];
+  filterAssigneeId?: string;
+  setFilterAssigneeId?: (id: string) => void;
 }
 
 export const Board: React.FC<BoardProps> = ({
@@ -78,6 +80,8 @@ export const Board: React.FC<BoardProps> = ({
   userId,
   onAlertsCalculated,
   projectMembers = [],
+  filterAssigneeId = '',
+  setFilterAssigneeId = () => {},
 }) => {
   const [columns, setColumns] = useState<Column[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -643,6 +647,24 @@ export const Board: React.FC<BoardProps> = ({
         </div>
       </header>
 
+      {/* Banner de Filtro de Participante */}
+      {filterAssigneeId && (
+        <div className="mx-6 mb-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/25 rounded-xl flex items-center justify-between text-xs text-indigo-300 font-semibold select-none animate-fadeIn">
+          <span className="flex items-center gap-2">
+            <Sparkles size={14} className="text-indigo-400 animate-pulse" />
+            <span>
+              Filtrando tarefas de: <strong>{profiles.find((p) => p.id === filterAssigneeId)?.full_name || 'Usuário'}</strong>
+            </span>
+          </span>
+          <button
+            onClick={() => setFilterAssigneeId('')}
+            className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-200 transition-all text-[10px] font-bold active:scale-95 border border-indigo-500/20 hover:border-indigo-500/35"
+          >
+            Limpar Filtro
+          </button>
+        </div>
+      )}
+
       {/* Board Columns container */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-6 snap-x snap-mandatory scroll-smooth">
         {loading ? (
@@ -669,7 +691,11 @@ export const Board: React.FC<BoardProps> = ({
                           >
                             <ColumnContainer
                               column={column}
-                              tasks={tasks.filter((t) => t.column_id === column.id)}
+                              tasks={tasks.filter(
+                                (t) =>
+                                  t.column_id === column.id &&
+                                  (!filterAssigneeId || t.assignee_id === filterAssigneeId)
+                              )}
                               profiles={profiles}
                               subtasks={subtasks}
                               onCardClick={(task) => {

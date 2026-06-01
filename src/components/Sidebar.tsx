@@ -45,6 +45,8 @@ interface SidebarProps {
   onAddProjectMember: (email: string) => Promise<boolean>;
   onRemoveProjectMember: (userId: string) => void;
   allProfiles: any[];
+  filterAssigneeId: string;
+  setFilterAssigneeId: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -65,6 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onAddProjectMember,
   onRemoveProjectMember,
   allProfiles = [],
+  filterAssigneeId,
+  setFilterAssigneeId,
 }) => {
   // Estado para controlar a abertura da caixa de seleção e o usuário selecionado
   const [isAddingMember, setIsAddingMember] = React.useState(false);
@@ -285,35 +289,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-            {projectMembers.map((member) => (
-              <div
-                key={member.id}
-                className="group/member flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border border-zinc-900 bg-zinc-950/20 hover:bg-zinc-900/30 transition-all"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 uppercase">
-                    {member.full_name ? member.full_name[0] : 'U'}
+            {projectMembers.map((member) => {
+              const isFiltered = filterAssigneeId === member.id;
+              return (
+                <div
+                  key={member.id}
+                  onClick={() => {
+                    if (isFiltered) {
+                      setFilterAssigneeId('');
+                    } else {
+                      setFilterAssigneeId(member.id);
+                    }
+                  }}
+                  title={isFiltered ? "Clique para limpar filtro" : "Clique para ver apenas as tarefas deste participante"}
+                  className={`group/member flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    isFiltered
+                      ? 'bg-indigo-600/15 border-indigo-500/45 text-indigo-200 shadow-sm shadow-indigo-500/5'
+                      : 'border-zinc-900 bg-zinc-950/20 hover:bg-zinc-900/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold uppercase transition-all ${
+                      isFiltered
+                        ? 'bg-gradient-to-tr from-indigo-500 to-purple-600 text-white border border-indigo-400/20'
+                        : 'bg-gradient-to-tr from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 text-indigo-300'
+                    }`}>
+                      {member.full_name ? member.full_name[0] : 'U'}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[11px] font-semibold text-zinc-300 truncate leading-tight">
+                        {member.full_name}
+                      </span>
+                      <span className="text-[9px] text-zinc-500 truncate leading-none mt-0.5">
+                        {member.role === 'owner' ? 'Dono' : 'Membro'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[11px] font-semibold text-zinc-300 truncate leading-tight">
-                      {member.full_name}
-                    </span>
-                    <span className="text-[9px] text-zinc-500 truncate leading-none mt-0.5">
-                      {member.role === 'owner' ? 'Dono' : 'Membro'}
-                    </span>
-                  </div>
+                  {member.role !== 'owner' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evitar disparar o filtro ao deletar!
+                        onRemoveProjectMember(member.id);
+                      }}
+                      title="Remover do Projeto"
+                      className="p-1 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-950/20 opacity-0 group-hover/member:opacity-100 transition-all"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  )}
                 </div>
-                {member.role !== 'owner' && (
-                  <button
-                    onClick={() => onRemoveProjectMember(member.id)}
-                    title="Remover do Projeto"
-                    className="p-1 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-950/20 opacity-0 group-hover/member:opacity-100 transition-all"
-                  >
-                    <Trash2 size={10} />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
