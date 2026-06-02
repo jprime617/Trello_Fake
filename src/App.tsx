@@ -418,27 +418,31 @@ function App() {
   }, [activeProjectId]);
 
   useEffect(() => {
-    // 1. Obter sessão atual de forma assíncrona
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-        fetchProjects(session.user.id);
-        fetchAllProfiles();
-      }
-      setAuthLoading(false);
-    });
+    let active = true;
+    let loadedUserId: string | null = null;
 
-    // 2. Escutar mudanças no estado de autenticação (sign in, sign out, etc.)
+    // Escutar mudanças no estado de autenticação (sign in, sign out, etc.)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+
       setSession(session);
+
       if (session?.user) {
-        fetchUserProfile(session.user.id);
-        fetchProjects(session.user.id);
-        fetchAllProfiles();
+        const userId = session.user.id;
+        if (userId !== loadedUserId) {
+          loadedUserId = userId;
+          Promise.all([
+            fetchUserProfile(userId),
+            fetchProjects(userId),
+            fetchAllProfiles(),
+          ]).catch((err) => {
+            console.error('Erro ao carregar dados pós-login:', err);
+          });
+        }
       } else {
+        loadedUserId = null;
         setProfile(null);
         setProjects([]);
         setActiveProjectId('');
@@ -449,6 +453,7 @@ function App() {
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
     };
   }, []);
