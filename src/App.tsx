@@ -604,6 +604,9 @@ function App() {
         userId={session.user.id}
         onAlertsCalculated={setAlerts}
         projectMembers={projectMembers}
+        onAddProjectMember={handleAddProjectMember}
+        onRemoveProjectMember={handleRemoveProjectMember}
+        allProfiles={allProfiles}
         filterAssigneeId={filterAssigneeId}
         setFilterAssigneeId={setFilterAssigneeId}
         boardBackground={profile?.board_background}
