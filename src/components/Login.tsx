@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCustomModal } from './CustomModals';
-import { Kanban, Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface LoginProps {
   onAuthSuccess: () => void;
@@ -70,9 +71,7 @@ export const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
       <div className="w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl relative z-10">
         {/* Header Icon */}
         <div className="flex flex-col items-center justify-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent mb-3 shadow-lg">
-            <Kanban size={28} className="animate-pulse" />
-          </div>
+          <Logo size={64} className="mb-3 shadow-lg" />
           <h1 className="text-3xl font-extrabold text-white tracking-tight leading-none my-1">
             Trello<span className="text-brand-accent">Fake</span>
           </h1>

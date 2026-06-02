@@ -1,0 +1,57 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="logo-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <linearGradient id="theme-grad-left" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#6366f1" stopOpacity="0.85" />
+      <stop offset="100%" stopColor="#6366f1" stopOpacity="0.3" />
+    </linearGradient>
+    <linearGradient id="theme-grad-center" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="1" />
+      <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.4" />
+    </linearGradient>
+    <linearGradient id="theme-grad-right" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#ec4899" stopOpacity="0.7" />
+      <stop offset="100%" stopColor="#db2777" stopOpacity="0.15" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Circular container with dark fill and subtle border -->
+  <circle cx="50" cy="50" r="46" fill="#09090b" stroke="#1d1d20" strokeWidth="2" />
+  
+  <!-- Outer ambient circle line -->
+  <circle cx="50" cy="50" r="42" stroke="#6366f1" strokeWidth="1.5" strokeOpacity="0.18" />
+  
+  <!-- Three Kanban Columns with Glow effect -->
+  <g filter="url(#logo-glow)">
+    <!-- Column 1 (Left) -->
+    <g>
+      <rect x="22" y="24" width="16" height="52" rx="5" stroke="url(#theme-grad-left)" strokeWidth="1.5" fill="#6366f1" fillOpacity="0.04" />
+      <rect x="25" y="28" width="10" height="8" rx="2" fill="#6366f1" fillOpacity="0.18" />
+      <rect x="25" y="39" width="10" height="8" rx="2" fill="#6366f1" fillOpacity="0.18" />
+      <rect x="25" y="50" width="10" height="8" rx="2" fill="#6366f1" fillOpacity="0.18" />
+      <rect x="25" y="61" width="10" height="8" rx="2" fill="#6366f1" fillOpacity="0.18" />
+    </g>
+    <!-- Column 2 (Center) -->
+    <g>
+      <rect x="42" y="24" width="16" height="52" rx="5" stroke="url(#theme-grad-center)" strokeWidth="1.8" fill="#8b5cf6" fillOpacity="0.07" />
+      <rect x="45" y="28" width="10" height="8" rx="2" fill="#8b5cf6" fillOpacity="0.32" />
+      <rect x="45" y="39" width="10" height="8" rx="2" fill="#8b5cf6" fillOpacity="0.32" />
+      <rect x="45" y="50" width="10" height="8" rx="2" fill="#8b5cf6" fillOpacity="0.32" />
+      <rect x="45" y="61" width="10" height="8" rx="2" fill="#8b5cf6" fillOpacity="0.32" />
+    </g>
+    <!-- Column 3 (Right) -->
+    <g>
+      <rect x="62" y="24" width="16" height="52" rx="5" stroke="url(#theme-grad-right)" strokeWidth="1.2" fill="#ec4899" fillOpacity="0.02" />
+      <rect x="65" y="28" width="10" height="8" rx="2" fill="#ec4899" fillOpacity="0.10" />
+      <rect x="65" y="39" width="10" height="8" rx="2" fill="#ec4899" fillOpacity="0.10" />
+      <rect x="65" y="50" width="10" height="8" rx="2" fill="#ec4899" fillOpacity="0.10" />
+      <rect x="65" y="61" width="10" height="8" rx="2" fill="#ec4899" fillOpacity="0.10" />
+    </g>
+  </g>
+</svg>

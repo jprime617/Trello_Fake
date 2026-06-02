@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogOut, Plus, FolderKanban, Bell } from 'lucide-react';
+import { LogOut, Plus, Bell, Home } from 'lucide-react';
 import { useCustomModal } from './CustomModals';
 
 interface Board {
@@ -23,10 +23,7 @@ interface BottomNavProps {
   alerts: any[];
 
   // Novos props de Projetos para Mobile
-  projects: any[];
-  activeProjectId: string;
   setActiveProjectId: (id: string) => void;
-  onCreateProject: (title: string, description?: string) => void;
   onOpenProfileSettings: () => void;
 }
 
@@ -35,8 +32,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onLogout,
   onAddTaskClick,
   alerts,
-  projects = [],
-  activeProjectId,
   setActiveProjectId,
   onOpenProfileSettings,
 }) => {
@@ -72,24 +67,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 h-16 bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-lg flex items-center justify-around px-4 z-40 lg:hidden pb-safe">
-      {/* Mobile Project Selector Overlay Trigger */}
-      <div className="flex flex-col items-center justify-center text-brand-accent relative cursor-pointer min-w-[60px] h-full">
-        <FolderKanban size={20} />
-        <span className="text-[10px] mt-1 font-semibold">Projetos</span>
-        {projects.length > 0 && (
-          <select
-            value={activeProjectId}
-            onChange={(e) => setActiveProjectId(e.target.value)}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-          >
-            {projects.map((proj) => (
-              <option key={proj.id} value={proj.id}>
-                {proj.title}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      {/* Mobile Projects Hub Link */}
+      <button
+        onClick={() => setActiveProjectId('')}
+        className="flex flex-col items-center justify-center text-zinc-400 hover:text-white active:scale-95 transition-all min-w-[60px] h-full"
+        title="Voltar aos Projetos"
+      >
+        <Home size={20} className="text-zinc-400" />
+        <span className="text-[10px] mt-1 font-semibold text-zinc-400">Projetos</span>
+      </button>
 
       {/* Deadline Alerts Trigger with dynamic red badge */}
       <button

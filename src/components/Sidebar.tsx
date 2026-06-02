@@ -1,8 +1,8 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
 import { useCustomModal } from './CustomModals';
+import { Logo } from './Logo';
 import {
-  Kanban,
   LogOut,
   User,
   Plus,
@@ -11,8 +11,7 @@ import {
   Sparkles,
   Layers,
   Settings2,
-  FolderKanban,
-  Trash2,
+  Home,
 } from 'lucide-react';
 
 interface Board {
@@ -38,16 +37,7 @@ interface SidebarProps {
   alerts: any[];
 
   // Novos props de Projetos
-  projects: any[];
-  activeProjectId: string;
   setActiveProjectId: (id: string) => void;
-  onCreateProject: (title: string, description?: string) => void;
-  projectMembers: any[];
-  onAddProjectMember: (email: string) => Promise<boolean>;
-  onRemoveProjectMember: (userId: string) => void;
-  allProfiles: any[];
-  filterAssigneeId: string;
-  setFilterAssigneeId: (id: string) => void;
   onOpenProfileSettings: () => void;
 }
 
@@ -61,27 +51,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   alertPreference,
   setAlertPreference,
   alerts,
-  projects,
-  activeProjectId,
   setActiveProjectId,
-  onCreateProject,
-  projectMembers,
-  onAddProjectMember,
-  onRemoveProjectMember,
-  allProfiles = [],
-  filterAssigneeId,
-  setFilterAssigneeId,
   onOpenProfileSettings,
 }) => {
   const { confirm, prompt } = useCustomModal();
-  
-  // Estado para controlar a abertura da caixa de seleção e o usuário selecionado
-  const [isAddingMember, setIsAddingMember] = React.useState(false);
-  const [selectedMemberEmail, setSelectedMemberEmail] = React.useState('');
-
-  const nonMembers = allProfiles.filter(
-    (profile) => !projectMembers.some((member) => member.id === profile.id)
-  );
 
   const getInitials = (name: string) => {
     if (!name) return 'U';
@@ -125,11 +98,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-68 bg-zinc-950 border-r border-zinc-800/80 flex flex-col h-screen shrink-0 hidden lg:flex">
-      {/* Brand Header */}
       <div className="p-5 border-b border-zinc-800/80 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent">
-          <Kanban size={18} />
-        </div>
+        <Logo size={32} />
         <span className="text-lg font-bold text-white tracking-tight">
           Trello<span className="text-brand-accent">Fake</span>
         </span>
@@ -137,41 +107,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Main Left Pane Content */}
       <div className="flex-1 px-4 py-5 space-y-6 overflow-y-auto no-scrollbar">
-        {/* Projetos / Workspace Area */}
-        <div className="space-y-3 pb-3 border-b border-zinc-900/80">
-          <div className="flex items-center justify-between px-2">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
-              <FolderKanban size={12} className="text-zinc-600" />
-              <span>Meus Projetos</span>
-            </span>
-            <button
-              onClick={async () => {
-                const title = await prompt('Qual o nome do novo Projeto?', 'Digite o título do projeto');
-                if (title && title.trim()) {
-                  const desc = await prompt('Descrição do Projeto (Opcional):', 'Digite uma breve descrição');
-                  onCreateProject(title.trim(), desc?.trim() || undefined);
-                }
-              }}
-              title="Novo Projeto"
-              className="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all active:scale-90"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-
-          <div className="px-2">
-            <select
-              value={activeProjectId}
-              onChange={(e) => setActiveProjectId(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 text-xs font-bold text-white rounded-xl py-2 px-3 focus:outline-none focus:border-brand-accent/80 cursor-pointer"
-            >
-              {projects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  {proj.title}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Link de Navegação para a Home de Projetos */}
+        <div className="pb-3 border-b border-zinc-900/80">
+          <button
+            onClick={() => setActiveProjectId('')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800/50 transition-all font-bold text-xs uppercase tracking-wider active:scale-[0.98]"
+          >
+            <Home size={14} className="text-brand-accent" />
+            <span>Voltar aos Projetos</span>
+          </button>
         </div>
 
         {/* Sprints List Area */}
@@ -215,145 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Project Members Area */}
-        <div className="space-y-3 pb-3 border-t border-zinc-900/80 pt-3">
-          <div className="flex items-center justify-between px-2">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
-              <User size={12} className="text-zinc-600" />
-              <span>Participantes ({projectMembers.length})</span>
-            </span>
-            {!isAddingMember && (
-              <button
-                onClick={() => {
-                  setIsAddingMember(true);
-                  if (nonMembers.length > 0) {
-                    setSelectedMemberEmail(nonMembers[0].email);
-                  }
-                }}
-                title="Adicionar Participante"
-                className="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all active:scale-90"
-              >
-                <Plus size={14} />
-              </button>
-            )}
-          </div>
 
-          {isAddingMember && (
-            <div className="px-2 py-2.5 bg-zinc-900/80 border border-zinc-800 rounded-xl space-y-2">
-              <div className="text-[10px] font-bold text-zinc-400">Selecionar Usuário:</div>
-              {nonMembers.length > 0 ? (
-                <>
-                  <select
-                    value={selectedMemberEmail}
-                    onChange={(e) => setSelectedMemberEmail(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 text-[11px] font-semibold text-white rounded-lg py-1.5 px-2 focus:outline-none focus:border-brand-accent/80 cursor-pointer"
-                  >
-                    {nonMembers.map((p) => (
-                      <option key={p.id} value={p.email}>
-                        {p.full_name} ({p.email})
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <button
-                      onClick={async () => {
-                        if (selectedMemberEmail) {
-                          const success = await onAddProjectMember(selectedMemberEmail);
-                          if (success) {
-                            setIsAddingMember(false);
-                            setSelectedMemberEmail('');
-                          }
-                        }
-                      }}
-                      className="flex-1 py-1 rounded-md bg-brand-accent hover:bg-brand-accent-hover text-white text-[10px] font-bold transition-all active:scale-95"
-                    >
-                      Adicionar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsAddingMember(false);
-                        setSelectedMemberEmail('');
-                      }}
-                      className="px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition-all active:scale-95"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="text-[10px] text-zinc-500 py-1 space-y-2">
-                  <span>Todos os usuários já participam deste projeto!</span>
-                  <button
-                    onClick={() => setIsAddingMember(false)}
-                    className="w-full py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold transition-all"
-                  >
-                    Voltar
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-            {projectMembers.map((member) => {
-              const isFiltered = filterAssigneeId === member.id;
-              return (
-                <div
-                  key={member.id}
-                  onClick={() => {
-                    if (isFiltered) {
-                      setFilterAssigneeId('');
-                    } else {
-                      setFilterAssigneeId(member.id);
-                    }
-                  }}
-                  title={isFiltered ? "Clique para limpar filtro" : "Clique para ver apenas as tarefas deste participante"}
-                  className={`group/member flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none ${
-                    isFiltered
-                      ? 'bg-brand-accent/15 border-brand-accent/30 text-white shadow-sm shadow-brand-accent/5'
-                      : 'border-zinc-900 bg-zinc-950/20 hover:bg-zinc-900/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold uppercase transition-all shrink-0 select-none overflow-hidden ${
-                      isFiltered
-                        ? 'bg-brand-accent text-white'
-                        : 'bg-brand-accent/20 border border-brand-accent/30 text-brand-accent'
-                    }`}>
-                      {member.avatar_url ? (
-                        <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover" />
-                      ) : member.avatar_emoji ? (
-                        member.avatar_emoji
-                      ) : (
-                        member.full_name ? member.full_name[0] : 'U'
-                      )}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[11px] font-semibold text-zinc-300 truncate leading-tight">
-                        {member.full_name}
-                      </span>
-                      <span className="text-[9px] text-zinc-500 truncate leading-none mt-0.5">
-                        {member.role === 'owner' ? 'Dono' : 'Membro'}
-                      </span>
-                    </div>
-                  </div>
-                  {member.role !== 'owner' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation(); // Evitar disparar o filtro ao deletar!
-                        onRemoveProjectMember(member.id);
-                      }}
-                      title="Remover do Projeto"
-                      className="p-1 rounded-md text-zinc-500 hover:text-red-400 hover:bg-red-950/20 opacity-0 group-hover/member:opacity-100 transition-all"
-                    >
-                      <Trash2 size={10} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Deadline Alerts Panel */}
         <div className="space-y-3 border-t border-zinc-900/80 pt-3">

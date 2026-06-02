@@ -13,8 +13,14 @@ import {
   Trash2, 
   Lock, 
   KeyRound, 
-  Mail 
+  Mail,
+  Bell
 } from 'lucide-react';
+import {
+  registerPushNotifications,
+  unregisterPushNotifications,
+  getNotificationPermissionStatus
+} from '../lib/pushNotifications';
 
 interface Profile {
   id: string;
@@ -25,6 +31,7 @@ interface Profile {
   board_background?: string;
   bio?: string;
   avatar_url?: string;
+  alert_preference?: string;
 }
 
 interface ProfileSettingsModalProps {
@@ -84,7 +91,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   userId,
 }) => {
   const { toast } = useCustomModal();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
   
   // Estados da Aba de Personalização
   const [loading, setLoading] = useState(false);
@@ -103,6 +110,12 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
 
+  // Estados da Aba de Notificações
+  const [alertPref, setAlertPref] = useState('48h');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [registeringNotification, setRegisteringNotification] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'default'>('default');
+
   useEffect(() => {
     if (userProfile) {
       setFullName(userProfile.full_name || '');
@@ -112,8 +125,34 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       setBio(userProfile.bio || '');
       setAvatarUrl(userProfile.avatar_url || '');
       setNewEmail(userProfile.email || '');
+      setAlertPref(userProfile.alert_preference || '48h');
+
+      getNotificationPermissionStatus().then((status) => {
+        setPermissionStatus(status);
+        setNotificationsEnabled(status === 'granted' && !!localStorage.getItem('fcm_token'));
+      });
     }
   }, [userProfile, isOpen]);
+
+  const handleToggleNotifications = async () => {
+    try {
+      setRegisteringNotification(true);
+      if (notificationsEnabled) {
+        await unregisterPushNotifications();
+        setNotificationsEnabled(false);
+        toast('Notificações push desativadas para este dispositivo.', 'success');
+      } else {
+        await registerPushNotifications(userId);
+        setNotificationsEnabled(true);
+        setPermissionStatus('granted');
+        toast('Notificações push ativadas com sucesso neste dispositivo!', 'success');
+      }
+    } catch (err: any) {
+      toast('Erro ao configurar notificações: ' + err.message, 'error');
+    } finally {
+      setRegisteringNotification(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -179,6 +218,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
           theme_color: themeColor,
           board_background: boardBg,
           bio: bio.trim() || null,
+          alert_preference: alertPref,
         })
         .eq('id', userId);
 
@@ -292,7 +332,21 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             }`}
           >
             <Palette size={14} />
-            <span>Personalização & Tema</span>
+            <span className="hidden sm:inline">Personalização & Tema</span>
+            <span className="inline sm:hidden">Tema</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications')}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'notifications'
+                ? 'bg-brand-accent text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-850'
+            }`}
+          >
+            <Bell size={14} />
+            <span className="hidden sm:inline">Notificações</span>
+            <span className="inline sm:hidden">Avisos</span>
           </button>
           <button
             type="button"
@@ -304,7 +358,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             }`}
           >
             <Lock size={14} />
-            <span>Conta & Segurança</span>
+            <span className="hidden sm:inline">Conta & Segurança</span>
+            <span className="inline sm:hidden">Conta</span>
           </button>
         </div>
 
@@ -498,6 +553,87 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               </div>
 
             </form>
+          ) : activeTab === 'notifications' ? (
+            <div className="p-6 space-y-6 animate-fade-in">
+              
+              {/* Preferência de Prazos */}
+              <div className="space-y-4 p-5 bg-zinc-900/30 border border-zinc-900 rounded-2xl">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Bell size={12} className="text-zinc-600" />
+                  <span>Alertas de Prazos (Kanban)</span>
+                </span>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider block">
+                    Quando alertar sobre prazos de tarefas?
+                  </label>
+                  <select
+                    value={alertPref}
+                    onChange={(e) => setAlertPref(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs font-semibold"
+                  >
+                    <option value="1h">No dia do prazo (1 hora antes)</option>
+                    <option value="24h">24 horas antes (1 dia)</option>
+                    <option value="48h">48 horas antes (2 dias)</option>
+                    <option value="7d">7 dias antes (1 semana)</option>
+                  </select>
+                  <p className="text-[10px] text-zinc-500 font-light leading-relaxed">
+                    Escolha com quanta antecedência deseja que o sistema agende os alertas de vencimento para as tarefas atribuídas a você.
+                  </p>
+                </div>
+              </div>
+
+              {/* Notificações Push do Dispositivo */}
+              <div className="space-y-4 p-5 bg-zinc-900/30 border border-zinc-900 rounded-2xl">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Sparkles size={12} className="text-zinc-600" />
+                  <span>Notificações Push no Dispositivo</span>
+                </span>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1 flex-1">
+                    <span className="text-xs font-bold text-white block">Notificações Push</span>
+                    <span className="text-[10px] text-zinc-450 block font-light leading-relaxed">
+                      {permissionStatus === 'denied' 
+                        ? 'A permissão de notificações está bloqueada neste dispositivo. Por favor, redefina as permissões nas configurações do navegador ou do sistema.'
+                        : 'Ative para receber avisos nativos sobre vencimentos de tarefas diretamente na sua barra de status (mesmo com o app fechado).'}
+                    </span>
+                    <div className="pt-2 flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-zinc-550 uppercase">Status do Dispositivo:</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        permissionStatus === 'granted'
+                          ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/50'
+                          : permissionStatus === 'denied'
+                          ? 'bg-red-950/40 text-red-400 border border-red-900/50'
+                          : 'bg-zinc-900 text-zinc-450 border border-zinc-800'
+                      }`}>
+                        {permissionStatus === 'granted' ? 'Permitido' : permissionStatus === 'denied' ? 'Bloqueado' : 'Não Solicitado'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={registeringNotification || permissionStatus === 'denied'}
+                    onClick={handleToggleNotifications}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-1.5 disabled:opacity-50 select-none cursor-pointer whitespace-nowrap ${
+                      notificationsEnabled
+                        ? 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300'
+                        : 'bg-brand-accent hover:bg-brand-accent-hover text-white'
+                    }`}
+                  >
+                    {registeringNotification ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : notificationsEnabled ? (
+                      <span>Desativar</span>
+                    ) : (
+                      <span>Ativar</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+            </div>
           ) : (
             <div className="p-6 space-y-6 animate-fade-in">
               
@@ -615,7 +751,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        {activeTab === 'profile' ? (
+        {activeTab === 'profile' || activeTab === 'notifications' ? (
           <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-end gap-3 shrink-0">
             <button
               type="button"
@@ -633,7 +769,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               {loading ? (
                 <Loader2 className="animate-spin" size={14} />
               ) : (
-                <span>Salvar Customização</span>
+                <span>Salvar Configurações</span>
               )}
             </button>
           </div>
