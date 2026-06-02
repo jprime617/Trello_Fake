@@ -132,7 +132,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           onClick={() => onCardClick(task)}
-          className={`p-4 mb-3 bg-zinc-900/90 border border-zinc-800/80 rounded-xl transition-all duration-200 hover:border-indigo-500/50 hover:bg-zinc-900 group cursor-pointer select-none active:scale-[0.99] overflow-hidden ${
+          className={`p-4 mb-3 bg-zinc-900/90 border border-zinc-800/80 rounded-xl transition-all duration-200 hover:border-brand-accent/50 hover:bg-zinc-900 group cursor-pointer select-none active:scale-[0.99] overflow-hidden ${
             snapshot.isDragging ? 'dragging-card' : ''
           }`}
         >
@@ -173,12 +173,12 @@ export const CardItem: React.FC<CardItemProps> = ({
               {getPriorityLabel(task.priority)}
             </span>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500">
-              <Eye size={14} className="hover:text-indigo-400" />
+              <Eye size={14} className="hover:text-brand-accent" />
             </div>
           </div>
 
           {/* Title */}
-          <h4 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors mb-1.5 line-clamp-2">
+          <h4 className="text-sm font-semibold text-white group-hover:text-brand-accent transition-colors mb-1.5 line-clamp-2">
             {task.title}
           </h4>
 
@@ -233,7 +233,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                   <div className="w-full bg-zinc-950 h-1 rounded-full overflow-hidden border border-zinc-900/50">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        completedSub === totalSub ? 'bg-emerald-500 shadow-sm shadow-emerald-500/20' : 'bg-indigo-500'
+                        completedSub === totalSub ? 'bg-emerald-500 shadow-sm shadow-emerald-500/20' : 'bg-brand-accent'
                       }`}
                       style={{ width: `${progressPercent}%` }}
                     />

@@ -36,25 +36,44 @@ interface ProfileSettingsModalProps {
 }
 
 const EMOJIS = [
-  '👤', '🐱', '🦊', '🐨', '🐸', '🚀', '💻', '🎨', '🍕', '🏆', 
-  '🌟', '🛡️', '👾', '🔥', '💡', '🌈', '🐼', '🦄', '🍿', '🎸'
+  // Identidade / Profissões
+  '👤', '👨‍💻', '👩‍💻', '👨‍🎨', '👩‍🎨', '👨‍🚀', '👩‍🚀', '🥷', '🦸‍♂️', '🦸‍♀️',
+  // Tecnologia & Criatividade
+  '💻', '🎨', '🚀', '👾', '🎮', '💡', '🔥', '📈', '🧩', '🧪',
+  // Conquistas & Hobbies
+  '🏆', '🎖️', '🌟', '🎸', '📷', '🍕', '☕', '🍿', '🎬', '📚',
+  // Símbolos & Elementos
+  '⚡', '🛡️', '🔑', '💎', '🌈', '🍀', '🔮', '🎯', '📢', '🌍',
+  // Animais & Fantasia
+  '🐱', '🦊', '🐨', '🐸', '🐼', '🦄', '🦁', '🐉', '🐙', '🦉'
 ];
 
 const THEME_COLORS = [
   { id: 'indigo', label: 'Índigo (Padrão)', hex: '#6366f1', hoverHex: '#4f46e5' },
-  { id: 'emerald', label: 'Esmeralda', hex: '#10b981', hoverHex: '#059669' },
-  { id: 'rose', label: 'Rose', hex: '#f43f5e', hoverHex: '#e11d48' },
-  { id: 'amber', label: 'Âmbar', hex: '#f59e0b', hoverHex: '#d97706' },
-  { id: 'sky', label: 'Céu', hex: '#0ea5e9', hoverHex: '#0284c7' },
   { id: 'violet', label: 'Violeta', hex: '#8b5cf6', hoverHex: '#7c3aed' },
+  { id: 'fuchsia', label: 'Fúcsia', hex: '#d946ef', hoverHex: '#c084fc' },
+  { id: 'rose', label: 'Cereja', hex: '#ec4899', hoverHex: '#db2777' },
+  { id: 'crimson', label: 'Carmesim', hex: '#f43f5e', hoverHex: '#e11d48' },
+  { id: 'orange', label: 'Laranja', hex: '#f97316', hoverHex: '#ea580c' },
+  { id: 'amber', label: 'Âmbar', hex: '#f59e0b', hoverHex: '#d97706' },
+  { id: 'emerald', label: 'Esmeralda', hex: '#10b981', hoverHex: '#059669' },
+  { id: 'teal', label: 'Turquesa', hex: '#0d9488', hoverHex: '#0f766e' },
+  { id: 'sky', label: 'Celeste', hex: '#0ea5e9', hoverHex: '#0284c7' },
+  { id: 'slate', label: 'Metal Escuro', hex: '#64748b', hoverHex: '#475569' },
+  { id: 'bronze', label: 'Bronze Rosado', hex: '#fb7185', hoverHex: '#fda4af' },
 ];
 
 const BOARD_BACKGROUNDS = [
   { id: 'zinc', label: 'Grafite Sólido', class: 'bg-zinc-950', preview: 'bg-zinc-900 border border-zinc-800' },
+  { id: 'obsidian', label: 'Obsidiana Negra', class: 'bg-[#020617]', preview: 'bg-gray-950 border border-gray-900' },
   { id: 'sunset', label: 'Crepúsculo Roxo', class: 'bg-gradient-to-tr from-purple-950/60 via-zinc-950 to-pink-950/20', preview: 'bg-gradient-to-tr from-purple-900 via-zinc-900 to-pink-900' },
   { id: 'ocean', label: 'Abismo Oceânico', class: 'bg-gradient-to-tr from-blue-950/60 via-zinc-950 to-cyan-950/20', preview: 'bg-gradient-to-tr from-blue-900 via-zinc-900 to-cyan-900' },
   { id: 'aurora', label: 'Aurora Boreal', class: 'bg-gradient-to-tr from-emerald-950/60 via-zinc-950 to-teal-950/20', preview: 'bg-gradient-to-tr from-emerald-900 via-zinc-900 to-teal-900' },
   { id: 'cosmic', label: 'Nebulosa Cósmica', class: 'bg-gradient-to-tr from-violet-950/60 via-zinc-950 to-indigo-950/20', preview: 'bg-gradient-to-tr from-violet-900 via-zinc-900 to-indigo-900' },
+  { id: 'cyberpunk', label: 'Neon Cyberpunk', class: 'bg-gradient-to-tr from-fuchsia-950/60 via-zinc-950 to-yellow-950/20', preview: 'bg-gradient-to-tr from-fuchsia-900 via-zinc-900 to-yellow-900' },
+  { id: 'forest', label: 'Pinho & Névoa', class: 'bg-gradient-to-tr from-emerald-950/60 via-zinc-950 to-emerald-950/15', preview: 'bg-gradient-to-tr from-emerald-900 via-zinc-900 to-emerald-950' },
+  { id: 'volcano', label: 'Magma Profundo', class: 'bg-gradient-to-tr from-red-950/60 via-zinc-950 to-amber-950/20', preview: 'bg-gradient-to-tr from-red-900 via-zinc-900 to-amber-900' },
+  { id: 'lavender', label: 'Névoa de Lavanda', class: 'bg-gradient-to-tr from-purple-950/50 via-zinc-950 to-sky-950/25', preview: 'bg-gradient-to-tr from-purple-900 via-zinc-900 to-sky-900' },
 ];
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({

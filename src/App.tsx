@@ -390,11 +390,17 @@ function App() {
       const themeColor = profile.theme_color || 'indigo';
       const colors: Record<string, { hex: string; hoverHex: string }> = {
         indigo: { hex: '#6366f1', hoverHex: '#4f46e5' },
-        emerald: { hex: '#10b981', hoverHex: '#059669' },
-        rose: { hex: '#f43f5e', hoverHex: '#e11d48' },
-        amber: { hex: '#f59e0b', hoverHex: '#d97706' },
-        sky: { hex: '#0ea5e9', hoverHex: '#0284c7' },
         violet: { hex: '#8b5cf6', hoverHex: '#7c3aed' },
+        fuchsia: { hex: '#d946ef', hoverHex: '#c084fc' },
+        rose: { hex: '#ec4899', hoverHex: '#db2777' },
+        crimson: { hex: '#f43f5e', hoverHex: '#e11d48' },
+        orange: { hex: '#f97316', hoverHex: '#ea580c' },
+        amber: { hex: '#f59e0b', hoverHex: '#d97706' },
+        emerald: { hex: '#10b981', hoverHex: '#059669' },
+        teal: { hex: '#0d9488', hoverHex: '#0f766e' },
+        sky: { hex: '#0ea5e9', hoverHex: '#0284c7' },
+        slate: { hex: '#64748b', hoverHex: '#475569' },
+        bronze: { hex: '#fb7185', hoverHex: '#fda4af' },
       };
       const selected = colors[themeColor] || colors.indigo;
       document.documentElement.style.setProperty('--color-brand-accent', selected.hex);

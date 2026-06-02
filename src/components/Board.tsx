@@ -684,6 +684,11 @@ export const Board: React.FC<BoardProps> = ({
     ocean: 'bg-gradient-to-tr from-blue-950/60 via-zinc-950 to-cyan-950/20',
     aurora: 'bg-gradient-to-tr from-emerald-950/60 via-zinc-950 to-teal-950/20',
     cosmic: 'bg-gradient-to-tr from-violet-950/60 via-zinc-950 to-indigo-950/20',
+    obsidian: 'bg-[#020617]',
+    cyberpunk: 'bg-gradient-to-tr from-fuchsia-950/60 via-zinc-950 to-yellow-950/20',
+    forest: 'bg-gradient-to-tr from-emerald-950/60 via-zinc-950 to-emerald-950/15',
+    volcano: 'bg-gradient-to-tr from-red-950/60 via-zinc-950 to-amber-950/20',
+    lavender: 'bg-gradient-to-tr from-purple-950/50 via-zinc-950 to-sky-950/25',
   };
   const boardBgClass = bgClasses[boardBackground] || bgClasses.zinc;
 
