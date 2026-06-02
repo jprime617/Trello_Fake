@@ -1,6 +1,10 @@
 {
-  "appId": "com.trellofake.app",
+  "appId": "com.joao.trellofake",
   "appName": "Trello Fake",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://trello-fake-sigma.vercel.app/",
+    "cleartext": true
+  }
 }

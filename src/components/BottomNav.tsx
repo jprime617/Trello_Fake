@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LogOut, Plus, FolderKanban, Bell } from 'lucide-react';
 import { useCustomModal } from './CustomModals';
@@ -41,6 +41,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onOpenProfileSettings,
 }) => {
   const { toast, confirm } = useCustomModal();
+  const [isAlertsSheetOpen, setIsAlertsSheetOpen] = useState(false);
+
   const getInitials = (name: string) => {
     if (!name) return 'U';
     return name
@@ -64,12 +66,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       toast('Tudo certo! Nenhuma tarefa está próxima do vencimento.', 'success');
       return;
     }
-
-    toast(`Existem ${alerts.length} tarefas próximas do vencimento! Verifique no painel de alertas do seu computador.`, 'info');
+    setIsAlertsSheetOpen(true);
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-lg flex items-center justify-around px-4 z-40 lg:hidden pb-safe">
+    <>
+      <nav className="fixed bottom-0 left-0 right-0 h-16 bg-zinc-950/90 border-t border-zinc-800/80 backdrop-blur-lg flex items-center justify-around px-4 z-40 lg:hidden pb-safe">
       {/* Mobile Project Selector Overlay Trigger */}
       <div className="flex flex-col items-center justify-center text-brand-accent relative cursor-pointer min-w-[60px] h-full">
         <FolderKanban size={20} />
@@ -143,5 +145,60 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <span className="text-[10px] mt-1 font-semibold">Sair</span>
       </button>
     </nav>
+
+      {isAlertsSheetOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in" onClick={() => setIsAlertsSheetOpen(false)}>
+          <div 
+            className="w-full max-h-[80vh] bg-zinc-950/90 border-t border-zinc-800/80 rounded-t-3xl p-6 flex flex-col gap-4 shadow-2xl backdrop-blur-xl animate-slide-up text-zinc-100 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Bell size={18} className="text-red-400 animate-pulse" />
+                <h3 className="text-sm font-bold text-white">Tarefas Próximas ao Vencimento</h3>
+              </div>
+              <button 
+                onClick={() => setIsAlertsSheetOpen(false)}
+                className="text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition-all text-xs font-semibold"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[50vh] no-scrollbar">
+              {alerts.map((task) => {
+                const priorityColors = {
+                  high: 'bg-red-500/20 text-red-400 border-red-500/30',
+                  medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                  low: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                };
+                
+                const formattedDate = task.due_date ? (() => {
+                  const [y, m, d] = task.due_date.split('-');
+                  return `${d}/${m}/${y}`;
+                })() : '';
+
+                return (
+                  <div key={task.id} className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl flex items-center justify-between gap-3 hover:bg-zinc-900/80 transition-all">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-bold text-white truncate">{task.title}</h4>
+                      <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1">
+                        <span>Vence em:</span>
+                        <span className="font-bold text-zinc-400">{formattedDate}</span>
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}`}>
+                      {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

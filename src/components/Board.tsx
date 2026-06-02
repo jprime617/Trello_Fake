@@ -695,31 +695,26 @@ export const Board: React.FC<BoardProps> = ({
   return (
     <div className={`flex-1 flex flex-col min-w-0 ${boardBgClass} relative pb-16 lg:pb-0 h-screen overflow-hidden`}>
       {/* Top Header Panel */}
-      <header className="h-16 border-b border-zinc-800/80 px-6 flex items-center justify-between bg-zinc-950/40 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent">
-              <Kanban size={16} />
+      <header className="pt-[env(safe-area-inset-top,12px)] pb-3 md:py-0 h-auto md:h-16 border-b border-zinc-800/80 px-3 md:px-6 flex items-center justify-between bg-zinc-950/40 shrink-0 select-none">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+          <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent">
+              <Kanban size={14} className="md:size-[16px]" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-white leading-tight my-0">
-                Quadro Kanban
+            <div className="hidden xs:block">
+              <h2 className="text-xs md:text-sm font-bold text-white leading-tight my-0">
+                Quadro
               </h2>
-              <p className="text-[10px] text-zinc-500 font-semibold tracking-wide flex items-center gap-1 mt-0.5">
-                <Sparkles size={10} className="text-yellow-500/80 animate-pulse" />
-                <span>Sincronização em tempo real</span>
-              </p>
             </div>
           </div>
 
           {/* Seletor de Sprint Responsivo */}
           {boards.length > 0 && (
-            <div className="flex items-center gap-2 bg-zinc-900/60 border border-zinc-800/80 px-2 py-1 rounded-xl">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest hidden md:inline pl-1">Sprint:</span>
+            <div className="flex items-center gap-1 md:gap-2 bg-zinc-900/60 border border-zinc-800/80 px-1.5 md:px-2 py-0.5 md:py-1 rounded-xl min-w-0">
               <select
                 value={activeBoardId}
                 onChange={(e) => setActiveBoardId(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-brand-accent transition-colors pr-4 py-0.5"
+                className="bg-transparent text-[11px] md:text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-brand-accent transition-colors pr-2 md:pr-4 py-0.5 max-w-[80px] sm:max-w-none truncate"
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id} className="bg-zinc-950 text-white">
@@ -738,19 +733,19 @@ export const Board: React.FC<BoardProps> = ({
                 className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
                 title="Nova Sprint"
               >
-                <Plus size={12} />
+                <Plus size={10} />
               </button>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
           <button
             onClick={fetchData}
             title="Recarregar Quadro"
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800/50 transition-all active:rotate-45 shrink-0"
+            className="p-1.5 md:p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800/50 transition-all active:rotate-45 shrink-0"
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={13} className="md:size-[15px]" />
           </button>
           <button
             onClick={() => {
@@ -760,7 +755,7 @@ export const Board: React.FC<BoardProps> = ({
               }
               setIsColumnModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-semibold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] shrink-0"
+            className="px-2.5 md:px-3.5 py-1.5 md:py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-[10px] md:text-xs font-semibold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] shrink-0"
           >
             Nova Coluna
           </button>
