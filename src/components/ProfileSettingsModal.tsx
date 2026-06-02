@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCustomModal } from './CustomModals';
-import { X, User, Palette, Image as ImageIcon, FileText, Loader2, Sparkles, Camera, Trash2 } from 'lucide-react';
+import { 
+  X, 
+  User, 
+  Palette, 
+  Image as ImageIcon, 
+  FileText, 
+  Loader2, 
+  Sparkles, 
+  Camera, 
+  Trash2, 
+  Lock, 
+  KeyRound, 
+  Mail 
+} from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -52,6 +65,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   userId,
 }) => {
   const { toast } = useCustomModal();
+  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  
+  // Estados da Aba de Personalização
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState('');
   const [emoji, setEmoji] = useState('👤');
@@ -61,6 +77,13 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // Estados da Aba de Segurança/Conta
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+
   useEffect(() => {
     if (userProfile) {
       setFullName(userProfile.full_name || '');
@@ -69,6 +92,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       setBoardBg(userProfile.board_background || 'zinc');
       setBio(userProfile.bio || '');
       setAvatarUrl(userProfile.avatar_url || '');
+      setNewEmail(userProfile.email || '');
     }
   }, [userProfile, isOpen]);
 
@@ -158,15 +182,76 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      toast('Por favor, preencha todos os campos da senha.', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast('As novas senhas digitadas não coincidem.', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast('A nova senha deve ter no mínimo 6 caracteres.', 'error');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      toast('Sua senha foi atualizada com sucesso!', 'success');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast('Erro ao atualizar senha: ' + err.message, 'error');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.trim()) {
+      toast('Por favor, insira um e-mail válido.', 'error');
+      return;
+    }
+    if (newEmail.trim().toLowerCase() === userProfile?.email?.toLowerCase()) {
+      toast('Por favor, insira um e-mail diferente do seu e-mail atual.', 'error');
+      return;
+    }
+
+    try {
+      setEmailLoading(true);
+      const { error } = await supabase.auth.updateUser({
+        email: newEmail.trim().toLowerCase(),
+      });
+
+      if (error) throw error;
+
+      toast('Solicitação enviada! Um link de confirmação foi enviado para o novo e-mail.', 'success');
+      onProfileUpdate();
+    } catch (err: any) {
+      toast('Erro ao atualizar e-mail: ' + err.message, 'error');
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in text-zinc-100">
       <div className="w-full max-w-xl bg-zinc-950/80 border border-zinc-800/80 backdrop-blur-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-zoom-in">
         
         {/* Modal Header */}
         <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40 shrink-0">
           <h3 className="font-bold text-white text-sm flex items-center gap-2">
             <Sparkles size={16} className="text-yellow-500 animate-pulse" />
-            <span>Configurações de Personalização</span>
+            <span>Configurações do Usuário</span>
           </h3>
           <button
             onClick={onClose}
@@ -176,219 +261,374 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-          <form onSubmit={handleSave} className="space-y-6">
-            
-            {/* 1. SEÇÃO DE DADOS BÁSICOS & EMOJI */}
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
-                <User size={12} className="text-zinc-600" />
-                <span>Identidade & Avatar</span>
-              </span>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 p-1 bg-zinc-900 border border-zinc-800/80 rounded-xl shrink-0 mx-6 mt-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'profile'
+                ? 'bg-brand-accent text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-850'
+            }`}
+          >
+            <Palette size={14} />
+            <span>Personalização & Tema</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('security')}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'security'
+                ? 'bg-brand-accent text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-850'
+            }`}
+          >
+            <Lock size={14} />
+            <span>Conta & Segurança</span>
+          </button>
+        </div>
 
-              <div className="flex flex-col md:flex-row gap-5 items-start md:items-center">
-                {/* Visualizador de Avatar com Imagem ou Emoji Grande */}
-                <div className="relative group shrink-0 mx-auto md:mx-0">
-                  <div className="w-20 h-20 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-4xl shadow-lg shadow-brand-accent/5 select-none transition-transform group-hover:scale-105 duration-300 overflow-hidden">
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
-                    ) : (
-                      emoji
-                    )}
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          {activeTab === 'profile' ? (
+            <form onSubmit={handleSave} className="p-6 space-y-6">
+              
+              {/* 1. SEÇÃO DE DADOS BÁSICOS & EMOJI */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <User size={12} className="text-zinc-600" />
+                  <span>Identidade & Avatar</span>
+                </span>
+
+                <div className="flex flex-col md:flex-row gap-5 items-start md:items-center">
+                  {/* Visualizador de Avatar com Imagem ou Emoji Grande */}
+                  <div className="relative group shrink-0 mx-auto md:mx-0">
+                    <div className="w-20 h-20 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-4xl shadow-lg shadow-brand-accent/5 select-none transition-transform group-hover:scale-105 duration-300 overflow-hidden">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                      ) : (
+                        emoji
+                      )}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 bg-zinc-900 border border-zinc-800 text-[10px] font-bold px-1.5 py-0.5 rounded-md text-zinc-400">
+                      {avatarUrl ? 'Foto' : 'Emoji'}
+                    </span>
                   </div>
-                  <span className="absolute -bottom-1 -right-1 bg-zinc-900 border border-zinc-800 text-[10px] font-bold px-1.5 py-0.5 rounded-md text-zinc-400">
-                    {avatarUrl ? 'Foto' : 'Emoji'}
-                  </span>
+
+                  <div className="flex-1 w-full space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                        Seu Nome Exibido
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Prof. Milena"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs font-semibold"
+                      />
+                    </div>
+
+                    {/* Botões de Ação para Carregar Imagem */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="avatar-file-upload"
+                        disabled={uploadingPhoto}
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="avatar-file-upload"
+                        className="px-3 py-2 bg-brand-accent/20 hover:bg-brand-accent border border-brand-accent/40 hover:border-brand-accent text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 select-none"
+                      >
+                        {uploadingPhoto ? (
+                          <Loader2 className="animate-spin" size={12} />
+                        ) : (
+                          <Camera size={12} />
+                        )}
+                        <span>{uploadingPhoto ? 'Carregando...' : 'Enviar Foto'}</span>
+                      </label>
+
+                      {avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          className="px-3 py-2 bg-red-950/30 hover:bg-red-900/40 border border-red-900/40 hover:border-red-500 text-red-400 hover:text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-sm select-none"
+                        >
+                          <Trash2 size={12} />
+                          <span>Remover Foto</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex-1 w-full space-y-3">
+                {/* Seletor Curado de Emojis */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                    Escolha um Emoji para seu Perfil
+                  </label>
+                  <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 p-3 bg-zinc-900/40 border border-zinc-900 rounded-xl">
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        type="button"
+                        onClick={() => setEmoji(e)}
+                        className={`h-9 w-9 rounded-lg flex items-center justify-center text-lg transition-all hover:bg-zinc-850 hover:scale-110 active:scale-95 ${
+                          emoji === e ? 'bg-brand-accent/20 border border-brand-accent/50 scale-105' : 'bg-transparent border border-transparent text-zinc-300'
+                        }`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SEÇÃO DE TEMA DO SISTEMA */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Palette size={12} className="text-zinc-600" />
+                  <span>Paleta de Cores do Tema</span>
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {THEME_COLORS.map((color) => {
+                    const isSelected = themeColor === color.id;
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() => setThemeColor(color.id)}
+                        className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all text-left active:scale-[0.98] ${
+                          isSelected 
+                            ? 'bg-zinc-900 border-zinc-700 shadow-md shadow-black/30' 
+                            : 'bg-zinc-900/30 border-zinc-900/80 hover:bg-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span 
+                          className="w-4 h-4 rounded-full border border-black/40 shrink-0 block"
+                          style={{ backgroundColor: color.hex }}
+                        />
+                        <span className="text-xs font-bold truncate">
+                          {color.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. SEÇÃO DE PLANO DE FUNDO DO QUADRO (BOARD BACKGROUND) */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <ImageIcon size={12} className="text-zinc-600" />
+                  <span>Plano de Fundo dos Quadros</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {BOARD_BACKGROUNDS.map((bg) => {
+                    const isSelected = boardBg === bg.id;
+                    return (
+                      <button
+                        key={bg.id}
+                        type="button"
+                        onClick={() => setBoardBg(bg.id)}
+                        className={`p-2.5 rounded-xl border flex flex-col gap-2 transition-all text-left active:scale-[0.98] ${
+                          isSelected 
+                            ? 'bg-zinc-900 border-zinc-700 shadow-md shadow-black/30' 
+                            : 'bg-zinc-900/30 border-zinc-900/80 hover:bg-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <div className={`w-full h-12 rounded-lg ${bg.preview} relative overflow-hidden`}>
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <span className="text-[9px] font-extrabold uppercase text-white bg-brand-accent px-1.5 py-0.5 rounded-md">Ativo</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-bold text-white px-0.5">
+                          {bg.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. BIOGRAFIA & APRESENTAÇÃO */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <FileText size={12} className="text-zinc-600" />
+                  <span>Minha Apresentação (Bio)</span>
+                </span>
+
+                <div className="space-y-1">
+                  <textarea
+                    placeholder="Conte um pouco sobre suas responsabilidades ou cargo no projeto (ex: Desenvolvedora Frontend, Docente Orientadora)..."
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs resize-none font-light leading-relaxed text-zinc-100"
+                  />
+                </div>
+              </div>
+
+            </form>
+          ) : (
+            <div className="p-6 space-y-6 animate-fade-in">
+              
+              {/* Painel de Alterar Senha */}
+              <form onSubmit={handlePasswordChange} className="space-y-4 p-5 bg-zinc-900/30 border border-zinc-900 rounded-2xl">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <KeyRound size={12} className="text-zinc-600" />
+                  <span>Segurança da Conta & Senha</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      Seu Nome Exibido
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                      Nova Senha
                     </label>
                     <input
-                      type="text"
+                      type="password"
                       required
-                      placeholder="Ex: Prof. Milena"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="No mínimo 6 caracteres"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs font-semibold"
                     />
                   </div>
 
-                  {/* Botões de Ação para Carregar Imagem */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="avatar-file-upload"
-                      disabled={uploadingPhoto}
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="avatar-file-upload"
-                      className="px-3 py-2 bg-brand-accent/20 hover:bg-brand-accent border border-brand-accent/40 hover:border-brand-accent text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 select-none"
-                    >
-                      {uploadingPhoto ? (
-                        <Loader2 className="animate-spin" size={12} />
-                      ) : (
-                        <Camera size={12} />
-                      )}
-                      <span>{uploadingPhoto ? 'Carregando...' : 'Enviar Foto'}</span>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                      Confirmar Nova Senha
                     </label>
-
-                    {avatarUrl && (
-                      <button
-                        type="button"
-                        onClick={handleRemovePhoto}
-                        className="px-3 py-2 bg-red-950/30 hover:bg-red-900/40 border border-red-900/40 hover:border-red-500 text-red-400 hover:text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-sm select-none"
-                      >
-                        <Trash2 size={12} />
-                        <span>Remover Foto</span>
-                      </button>
-                    )}
+                    <input
+                      type="password"
+                      required
+                      placeholder="Repita a senha acima"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs font-semibold"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Seletor Curado de Emojis */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
-                  Escolha um Emoji para seu Perfil
-                </label>
-                <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 p-3 bg-zinc-900/40 border border-zinc-900 rounded-xl">
-                  {EMOJIS.map((e) => (
-                    <button
-                      key={e}
-                      type="button"
-                      onClick={() => setEmoji(e)}
-                      className={`h-9 w-9 rounded-lg flex items-center justify-center text-lg transition-all hover:bg-zinc-850 hover:scale-110 active:scale-95 ${
-                        emoji === e ? 'bg-brand-accent/20 border border-brand-accent/50 scale-105' : 'bg-transparent border border-transparent text-zinc-300'
-                      }`}
-                    >
-                      {e}
-                    </button>
-                  ))}
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-4 py-2.5 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {passwordLoading ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <span>Atualizar Senha</span>
+                    )}
+                  </button>
                 </div>
-              </div>
+              </form>
+
+              {/* Painel de Alterar E-mail */}
+              <form onSubmit={handleEmailChange} className="space-y-4 p-5 bg-zinc-900/30 border border-zinc-900 rounded-2xl">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Mail size={12} className="text-zinc-600" />
+                  <span>E-mail de Cadastro</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                      E-mail Atual
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      value={userProfile?.email || ''}
+                      className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-900 rounded-xl text-zinc-500 text-xs font-semibold cursor-not-allowed select-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
+                      Novo E-mail
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="exemplo@novodominio.com"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-amber-950/20 border border-amber-900/40 p-3 rounded-xl text-[10px] text-amber-400 font-semibold leading-relaxed flex gap-2">
+                  <span className="text-xs shrink-0 select-none block">⚠️</span>
+                  <span>
+                    <strong>Importante:</strong> Para concluir a alteração do e-mail, o Supabase enviará uma mensagem de confirmação para o novo endereço de e-mail por motivos de segurança.
+                  </span>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={emailLoading}
+                    className="px-4 py-2.5 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {emailLoading ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <span>Atualizar E-mail</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+
             </div>
-
-            {/* 2. SEÇÃO DE TEMA DO SISTEMA */}
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
-                <Palette size={12} className="text-zinc-600" />
-                <span>Paleta de Cores do Tema</span>
-              </span>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {THEME_COLORS.map((color) => {
-                  const isSelected = themeColor === color.id;
-                  return (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={() => setThemeColor(color.id)}
-                      className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all text-left active:scale-[0.98] ${
-                        isSelected 
-                          ? 'bg-zinc-900 border-zinc-700 shadow-md shadow-black/30' 
-                          : 'bg-zinc-900/30 border-zinc-900/80 hover:bg-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <span 
-                        className="w-4 h-4 rounded-full border border-black/40 shrink-0 block"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <span className="text-xs font-bold truncate">
-                        {color.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3. SEÇÃO DE PLANO DE FUNDO DO QUADRO (BOARD BACKGROUND) */}
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
-                <ImageIcon size={12} className="text-zinc-600" />
-                <span>Plano de Fundo dos Quadros</span>
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {BOARD_BACKGROUNDS.map((bg) => {
-                  const isSelected = boardBg === bg.id;
-                  return (
-                    <button
-                      key={bg.id}
-                      type="button"
-                      onClick={() => setBoardBg(bg.id)}
-                      className={`p-2.5 rounded-xl border flex flex-col gap-2 transition-all text-left active:scale-[0.98] ${
-                        isSelected 
-                          ? 'bg-zinc-900 border-zinc-700 shadow-md shadow-black/30' 
-                          : 'bg-zinc-900/30 border-zinc-900/80 hover:bg-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <div className={`w-full h-12 rounded-lg ${bg.preview} relative overflow-hidden`}>
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                            <span className="text-[9px] font-extrabold uppercase text-white bg-brand-accent px-1.5 py-0.5 rounded-md">Ativo</span>
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-[11px] font-bold text-white px-0.5">
-                        {bg.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 4. BIOGRAFIA & APRESENTAÇÃO */}
-            <div className="space-y-3">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
-                <FileText size={12} className="text-zinc-600" />
-                <span>Minha Apresentação (Bio)</span>
-              </span>
-
-              <div className="space-y-1">
-                <textarea
-                  placeholder="Conte um pouco sobre suas responsabilidades ou cargo no projeto (ex: Desenvolvedora Frontend, Docente Orientadora)..."
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={3}
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all text-xs resize-none font-light leading-relaxed"
-                />
-              </div>
-            </div>
-
-          </form>
+          )}
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-end gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-800 text-zinc-400 hover:text-white rounded-xl text-xs font-semibold transition-all active:scale-95"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={loading}
-            className="px-5 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" size={14} />
-            ) : (
-              <span>Salvar Customização</span>
-            )}
-          </button>
-        </div>
+        {activeTab === 'profile' ? (
+          <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-end gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-800 text-zinc-400 hover:text-white rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading}
+              className="px-5 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={14} />
+              ) : (
+                <span>Salvar Customização</span>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-end gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-800 text-zinc-450 hover:text-white rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer"
+            >
+              Fechar Configurações
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

@@ -184,7 +184,8 @@ function App() {
             id,
             full_name,
             email,
-            avatar_url
+            avatar_url,
+            avatar_emoji
           )
         `)
         .eq('project_id', projectId);

@@ -315,12 +315,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold uppercase transition-all ${
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold uppercase transition-all shrink-0 select-none overflow-hidden ${
                       isFiltered
                         ? 'bg-brand-accent text-white'
                         : 'bg-brand-accent/20 border border-brand-accent/30 text-brand-accent'
                     }`}>
-                      {member.full_name ? member.full_name[0] : 'U'}
+                      {member.avatar_url ? (
+                        <img src={member.avatar_url} alt={member.full_name} className="w-full h-full object-cover" />
+                      ) : member.avatar_emoji ? (
+                        member.avatar_emoji
+                      ) : (
+                        member.full_name ? member.full_name[0] : 'U'
+                      )}
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[11px] font-semibold text-zinc-300 truncate leading-tight">
