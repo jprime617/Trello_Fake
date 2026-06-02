@@ -706,17 +706,101 @@ export const Board: React.FC<BoardProps> = ({
   return (
     <div className={`flex-1 flex flex-col min-w-0 ${boardBgClass} relative pb-16 lg:pb-0 h-screen overflow-hidden`}>
       {/* Top Header Panel */}
-      <header className="pt-[env(safe-area-inset-top,16px)] pb-3.5 md:py-0 h-auto md:h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md px-4 md:px-6 flex items-center justify-between shrink-0 select-none shadow-lg shadow-black/20">
-        <div className="flex items-center gap-3 md:gap-4 min-w-0">
-          <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
+      {/* Mobile Header Structure */}
+      <header className="lg:hidden pt-[env(safe-area-inset-top,16px)] pb-3.5 px-4 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md flex flex-col gap-3 shrink-0 shadow-lg shadow-black/20 select-none">
+        {/* Row 1: Logo, Title & Sprint Selector */}
+        <div className="flex items-center justify-between w-full gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-brand-accent/10 border border-brand-accent/40 flex items-center justify-center text-brand-accent shrink-0 shadow-sm shadow-brand-accent/5">
+              <Kanban size={14} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xs font-extrabold text-white truncate tracking-tight my-0">
+                Quadro Kanban
+              </h2>
+            </div>
+          </div>
+
+          {/* Sprint Selector */}
+          {boards.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-2 py-1 rounded-xl shrink-0 shadow-inner">
+              <select
+                value={activeBoardId}
+                onChange={(e) => setActiveBoardId(e.target.value)}
+                className="bg-transparent text-[11px] font-bold text-white focus:outline-none cursor-pointer pr-1"
+              >
+                {boards.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-zinc-950 text-white">
+                    {b.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={async () => {
+                  const title = await prompt('Qual o nome da nova Sprint?', 'Ex: Sprint 2');
+                  if (title && title.trim()) {
+                    const desc = await prompt('Descrição da Sprint (Opcional):', 'Foco ou objetivos desta sprint');
+                    onCreateBoard(title.trim(), desc?.trim() || undefined);
+                  }
+                }}
+                className="p-0.5 rounded-md text-zinc-400 hover:text-white"
+                title="Nova Sprint"
+              >
+                <Plus size={10} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Row 2: Action Buttons (Membros, Recarregar, Nova Coluna) */}
+        <div className="grid grid-cols-3 gap-2 w-full">
+          {/* Members Button */}
+          <button
+            onClick={() => setIsMembersDrawerOpen(true)}
+            className="flex items-center justify-center gap-1 px-1 py-2 bg-zinc-900 border border-zinc-800 active:border-zinc-600 rounded-xl text-[10px] font-bold text-zinc-200 transition-all shadow-sm"
+          >
+            <Users size={12} className="text-brand-accent shrink-0" />
+            <span className="truncate">Membros ({projectMembers.length})</span>
+          </button>
+
+          {/* Reload Button */}
+          <button
+            onClick={fetchData}
+            className="flex items-center justify-center gap-1 px-1 py-2 bg-zinc-900 border border-zinc-800 active:border-zinc-600 rounded-xl text-[10px] font-bold text-zinc-200 transition-all shadow-sm"
+          >
+            <RefreshCw size={11} className="text-zinc-400 shrink-0" />
+            <span className="truncate">Atualizar</span>
+          </button>
+
+          {/* Add Column Button */}
+          <button
+            onClick={() => {
+              if (boards.length === 0) {
+                toast('Por favor, crie uma Sprint primeiro antes de adicionar colunas!', 'info');
+                return;
+              }
+              setIsColumnModalOpen(true);
+            }}
+            className="flex items-center justify-center gap-1 px-1 py-2 bg-brand-accent border border-brand-accent/40 rounded-xl text-[10px] font-bold text-white transition-all shadow-sm shadow-brand-accent/10 active:scale-[0.98]"
+          >
+            <Plus size={12} className="shrink-0" />
+            <span className="truncate">Nova Coluna</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Desktop Header Structure */}
+      <header className="hidden lg:flex h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md px-6 items-center justify-between shrink-0 select-none shadow-lg shadow-black/20">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <div className="w-8.5 h-8.5 rounded-xl bg-brand-accent/10 border border-brand-accent/40 flex items-center justify-center text-brand-accent shadow-md shadow-brand-accent/5">
               <Kanban size={16} />
             </div>
             <div>
-              <h2 className="text-sm md:text-base font-extrabold text-white leading-tight my-0 tracking-tight">
+              <h2 className="text-base font-extrabold text-white leading-tight my-0 tracking-tight">
                 Quadro Kanban
               </h2>
-              <p className="hidden xs:flex text-[9px] text-zinc-500 font-semibold tracking-wide items-center gap-1 mt-0.5 my-0">
+              <p className="flex text-[9px] text-zinc-500 font-semibold tracking-wide items-center gap-1 mt-0.5 my-0">
                 <Sparkles size={9} className="text-yellow-500/80 animate-pulse" />
                 <span>Tempo Real</span>
               </p>
@@ -726,11 +810,11 @@ export const Board: React.FC<BoardProps> = ({
           {/* Seletor de Sprint Responsivo */}
           {boards.length > 0 && (
             <div className="flex items-center gap-1.5 bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 px-2 py-1 rounded-xl min-w-0 shadow-inner">
-              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest hidden sm:inline pl-1">Sprint:</span>
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest pl-1">Sprint:</span>
               <select
                 value={activeBoardId}
                 onChange={(e) => setActiveBoardId(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-brand-accent transition-colors pr-2 md:pr-4 py-0.5 max-w-[80px] sm:max-w-none truncate"
+                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer hover:text-brand-accent transition-colors pr-4 py-0.5 truncate"
               >
                 {boards.map((b) => (
                   <option key={b.id} value={b.id} className="bg-zinc-950 text-white">
@@ -755,14 +839,14 @@ export const Board: React.FC<BoardProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {/* Membros / Usuários Trigger */}
           <button
             onClick={() => setIsMembersDrawerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-600 rounded-xl text-[11px] md:text-xs font-bold text-zinc-200 transition-all shadow-md shadow-black/20 shrink-0 animate-pulse-subtle"
+            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-600 rounded-xl text-xs font-bold text-zinc-200 transition-all shadow-md shadow-black/20 shrink-0"
           >
             <Users size={13} className="text-brand-accent" />
-            <span className="hidden sm:inline">Membros</span>
+            <span>Membros</span>
             {projectMembers.length > 0 && (
               <span className="w-4 h-4 rounded-full bg-brand-accent/25 border border-brand-accent/40 text-[9px] text-white flex items-center justify-center font-bold">
                 {projectMembers.length}
@@ -785,7 +869,7 @@ export const Board: React.FC<BoardProps> = ({
               }
               setIsColumnModalOpen(true);
             }}
-            className="px-3 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white border border-brand-accent/40 hover:border-brand-accent rounded-xl text-[11px] md:text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] shrink-0"
+            className="px-3 py-2 bg-brand-accent hover:bg-brand-accent-hover text-white border border-brand-accent/40 hover:border-brand-accent rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-accent/10 active:scale-[0.98] shrink-0"
           >
             Nova Coluna
           </button>
@@ -794,7 +878,7 @@ export const Board: React.FC<BoardProps> = ({
 
       {/* Banner de Filtro de Participante */}
       {filterAssigneeId && (
-        <div className="mx-6 mb-2 px-4 py-2 bg-brand-accent/10 border border-brand-accent/25 rounded-xl flex items-center justify-between text-xs text-brand-accent font-semibold select-none animate-fadeIn">
+        <div className="mx-4 lg:mx-6 mb-2 px-4 py-2 bg-brand-accent/10 border border-brand-accent/25 rounded-xl flex items-center justify-between text-xs text-brand-accent font-semibold select-none animate-fadeIn">
           <span className="flex items-center gap-2">
             <Sparkles size={14} className="text-brand-accent animate-pulse" />
             <span>
@@ -811,7 +895,7 @@ export const Board: React.FC<BoardProps> = ({
       )}
 
       {/* Board Columns container */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden px-6 py-6 snap-x snap-mandatory scroll-smooth">
+      <main className="flex-1 overflow-x-auto overflow-y-hidden px-4 lg:px-6 py-4 lg:py-6 snap-x snap-mandatory scroll-smooth">
         {loading ? (
           <div className="w-full h-[60vh] flex flex-col items-center justify-center text-zinc-500 gap-3">
             <Loader2 className="animate-spin text-brand-accent" size={32} />
