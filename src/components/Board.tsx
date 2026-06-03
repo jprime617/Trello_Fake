@@ -902,7 +902,7 @@ export const Board: React.FC<BoardProps> = ({
       )}
 
       {/* Board Columns container */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 snap-x snap-mandatory scroll-smooth">
+      <main className="flex-1 flex overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 snap-x snap-mandatory scroll-smooth min-h-0">
         {loading ? (
           <div className="w-full h-[60vh] flex flex-col items-center justify-center text-zinc-500 gap-3">
             <Loader2 className="animate-spin text-brand-accent" size={32} />
@@ -915,7 +915,7 @@ export const Board: React.FC<BoardProps> = ({
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className="flex gap-5 h-full items-start pb-4"
+                  className="flex gap-5 h-full items-stretch pb-4 min-h-0"
                 >
                   {boards.length === 0 ? (
                     <div className="w-full h-[55vh] border border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-zinc-500 text-sm gap-3 bg-zinc-950/10">
@@ -944,6 +944,7 @@ export const Board: React.FC<BoardProps> = ({
                           <div
                             ref={dragProvided.innerRef}
                             {...dragProvided.draggableProps}
+                            className="flex flex-col h-full"
                           >
                             <ColumnContainer
                               column={column}
