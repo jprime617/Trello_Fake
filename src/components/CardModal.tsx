@@ -426,9 +426,9 @@ export const CardModal: React.FC<CardModalProps> = ({
                   <span>Data de Entrega</span>
                 </label>
                 <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  type="datetime-local"
+                  value={dueDate ? new Date(new Date(dueDate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => setDueDate(e.target.value ? new Date(e.target.value).toISOString() : '')}
                   className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 transition-all text-xs font-semibold cursor-pointer"
                 />
               </div>

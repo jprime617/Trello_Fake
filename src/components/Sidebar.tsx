@@ -84,14 +84,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const formatTimeLeft = (dateStr?: string) => {
     if (!dateStr) return '';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(dateStr + 'T00:00:00');
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const now = new Date();
+    const dueDate = new Date(dateStr);
+    const diffTime = dueDate.getTime() - now.getTime();
+    const diffHours = diffTime / (1000 * 60 * 60);
 
-    if (diffDays < 0) return 'Atrasado';
-    if (diffDays === 0) return 'Hoje';
+    if (diffHours < 0) return 'Atrasado';
+    if (diffHours <= 1) return 'Em minutos';
+    if (diffHours <= 24) return `Em ${Math.round(diffHours)} horas`;
+    const diffDays = Math.ceil(diffHours / 24);
     if (diffDays === 1) return 'Amanhã';
     return `Em ${diffDays} dias`;
   };

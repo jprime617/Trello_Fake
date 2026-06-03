@@ -218,16 +218,22 @@ export const Board: React.FC<BoardProps> = ({
 
     const activeAlerts = tasks.filter((task) => {
       if (!task.due_date) return false;
-      const dueDate = new Date(task.due_date + 'T00:00:00');
-      const diffTime = dueDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const dueDate = new Date(task.due_date);
+      const now = new Date();
+      const diffTime = dueDate.getTime() - now.getTime();
+      const diffHours = diffTime / (1000 * 60 * 60);
 
-      if (alertPreference === '24h') {
-        return diffDays <= 1; // Expira hoje, amanhã ou está atrasado
+      // Não mostrar alertas de tarefas antigas/vencidas faz tempo (opcional), mas vamos manter a lógica de exibir se estiver próximo.
+      // Se diffHours < 0 e a tarefa não foi concluída, ela está atrasada.
+
+      if (alertPreference === '1h') {
+        return diffHours <= 1; // Menos de 1h ou atrasado
+      } else if (alertPreference === '24h') {
+        return diffHours <= 24; // Nas próximas 24h
       } else if (alertPreference === '48h') {
-        return diffDays <= 2;
+        return diffHours <= 48; // Nas próximas 48h
       } else {
-        return diffDays <= 7; // Expira na semana
+        return diffHours <= 168; // Expira na semana (7d)
       }
     });
 

@@ -178,37 +178,41 @@ async function runDeadlineCheck() {
     const userTokens = tokenMap.get(assigneeId) || [];
     if (userTokens.length === 0) continue;
 
-    // Calcular dias até o vencimento
-    const taskDueDate = new Date(task.due_date + 'T00:00:00');
-    const diffTime = taskDueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Calcular horas exatas até o vencimento
+    const taskDueDate = new Date(task.due_date);
+    const now = new Date();
+    const diffTime = taskDueDate.getTime() - now.getTime();
+    const diffHours = diffTime / (1000 * 60 * 60);
 
-    // Determinar se o usuário deve ser notificado hoje baseado na sua preferência
+    // Ignora tarefas que já venceram no passado
+    if (diffHours < 0) continue;
+
+    // Determinar se o usuário deve ser notificado baseado na sua preferência
     let shouldNotify = false;
     const pref = profile.alert_preference;
 
-    if (pref === '1h' && diffDays === 0) {
+    if (pref === '1h' && diffHours <= 1) {
       shouldNotify = true;
-    } else if (pref === '24h' && diffDays === 1) {
+    } else if (pref === '24h' && diffHours <= 24) {
       shouldNotify = true;
-    } else if (pref === '48h' && diffDays === 2) {
+    } else if (pref === '48h' && diffHours <= 48) {
       shouldNotify = true;
-    } else if (pref === '7d' && diffDays === 7) {
+    } else if (pref === '7d' && diffHours <= 168) {
       shouldNotify = true;
     }
 
     if (shouldNotify) {
       const title = 'Aviso de Prazo de Tarefa ⏰';
       let body = '';
-      if (diffDays === 0) {
-        body = `A tarefa "${task.title}" vence hoje!`;
-      } else if (diffDays === 1) {
-        body = `A tarefa "${task.title}" vence amanhã!`;
+      if (diffHours <= 1) {
+        body = `A tarefa "${task.title}" vence em menos de 1 hora!`;
+      } else if (diffHours <= 24) {
+        body = `A tarefa "${task.title}" vence nas próximas 24 horas!`;
       } else {
-        body = `A tarefa "${task.title}" vence em ${diffDays} dias (${taskDueDate.toLocaleDateString()}).`;
+        body = `A tarefa "${task.title}" vence em breve (${taskDueDate.toLocaleString('pt-BR')}).`;
       }
 
-      console.log(`[ALERTA] Notificando ${profile.full_name} (${pref}) sobre a tarefa "${task.title}" (vence em ${diffDays} dias).`);
+      console.log(`[ALERTA] Notificando ${profile.full_name} (${pref}) sobre a tarefa "${task.title}" (vence em ${Math.round(diffHours)}h).`);
 
       // Envia notificação para todos os dispositivos do usuário
       for (const item of userTokens) {

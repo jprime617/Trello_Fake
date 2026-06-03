@@ -1,0 +1,32 @@
+name: Verificador de Prazos (Notificações Push)
+
+on:
+  schedule:
+    # Roda de hora em hora (no minuto 0 de toda hora)
+    - cron: '0 * * * *'
+  
+  # Permite que você clique num botão no GitHub para testar manualmente quando quiser
+  workflow_dispatch:
+
+jobs:
+  check-deadlines:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Baixando o código
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Configurando o Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 Instalando dependências
+        run: npm install
+
+      - name: 🚀 Rodando o Robô de Notificações
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: npx tsx scripts/check-deadlines.ts

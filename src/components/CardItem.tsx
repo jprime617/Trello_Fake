@@ -102,16 +102,16 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const isOverdue = (dateStr?: string) => {
     if (!dateStr) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(dateStr + 'T00:00:00');
-    return dueDate < today;
+    const now = new Date();
+    const dueDate = new Date(dateStr);
+    return dueDate < now;
   };
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year.substring(2)}`;
+    return new Date(dateStr).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
   };
 
   // Encontrar o primeiro anexo de imagem para usar como capa do cartão

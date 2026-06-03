@@ -161,10 +161,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   low: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                 };
                 
-                const formattedDate = task.due_date ? (() => {
-                  const [y, m, d] = task.due_date.split('-');
-                  return `${d}/${m}/${y}`;
-                })() : '';
+                const formattedDate = task.due_date ? new Date(task.due_date).toLocaleString('pt-BR', { 
+                  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                }) : '';
 
                 return (
                   <div key={task.id} className="p-3 bg-zinc-900/40 border border-zinc-800/60 rounded-xl flex items-center justify-between gap-3 hover:bg-zinc-900/80 transition-all">
