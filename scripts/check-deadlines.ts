@@ -191,13 +191,13 @@ async function runDeadlineCheck() {
     let shouldNotify = false;
     const pref = profile.alert_preference;
 
-    if (pref === '1h' && diffHours <= 1) {
+    if (pref === '1h' && diffHours > 0 && diffHours <= 1) {
       shouldNotify = true;
-    } else if (pref === '24h' && diffHours <= 24) {
+    } else if (pref === '24h' && ((diffHours > 23 && diffHours <= 24) || (diffHours > 0 && diffHours <= 1))) {
       shouldNotify = true;
-    } else if (pref === '48h' && diffHours <= 48) {
+    } else if (pref === '48h' && ((diffHours > 47 && diffHours <= 48) || (diffHours > 0 && diffHours <= 1))) {
       shouldNotify = true;
-    } else if (pref === '7d' && diffHours <= 168) {
+    } else if (pref === '7d' && ((diffHours > 167 && diffHours <= 168) || (diffHours > 0 && diffHours <= 1))) {
       shouldNotify = true;
     }
 

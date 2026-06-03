@@ -69,7 +69,7 @@ interface BoardProps {
   boards: BoardData[];
   setActiveBoardId: (id: string) => void;
   onCreateBoard: (title: string, description?: string) => void;
-  alertPreference: '24h' | '48h' | '7d';
+  alertPreference: '1h' | '24h' | '48h' | '7d';
   userId: string;
   onAlertsCalculated: (alerts: any[]) => void;
   projectMembers?: Profile[];

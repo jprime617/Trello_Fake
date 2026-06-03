@@ -31,8 +31,8 @@ interface SidebarProps {
   setActiveBoardId: (id: string) => void;
   onCreateBoard: (title: string, description?: string) => void;
   boardsLoading: boolean;
-  alertPreference: '24h' | '48h' | '7d';
-  setAlertPreference: (pref: '24h' | '48h' | '7d') => void;
+  alertPreference: '1h' | '24h' | '48h' | '7d';
+  setAlertPreference: (pref: '1h' | '24h' | '48h' | '7d') => void;
   userId: string;
   alerts: any[];
 

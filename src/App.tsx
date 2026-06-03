@@ -55,8 +55,8 @@ function App() {
   const [activeBoardId, setActiveBoardId] = useState<string>('');
   const [boardsLoading, setBoardsLoading] = useState(false);
 
-  // Preferência de Alerta de Prazos: '24h' | '48h' | '7d'
-  const [alertPreference, setAlertPreference] = useState<'24h' | '48h' | '7d'>('48h');
+  // Preferência de Alerta de Prazos: '1h' | '24h' | '48h' | '7d'
+  const [alertPreference, setAlertPreference] = useState<'1h' | '24h' | '48h' | '7d'>('48h');
 
   // Estado de alertas calculados
   const [alerts, setAlerts] = useState<any[]>([]);
