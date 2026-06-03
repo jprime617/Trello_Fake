@@ -30,7 +30,6 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({
   userProfile,
   onLogout,
-  onAddTaskClick,
   alerts,
   setActiveProjectId,
   onOpenProfileSettings,
@@ -91,13 +90,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         )}
       </button>
 
-      {/* Main Brand Action (Add Task) */}
-      <button
-        onClick={onAddTaskClick}
-        className="w-12 h-12 rounded-full bg-brand-accent border border-brand-accent/50 flex items-center justify-center text-white shadow-lg shadow-brand-accent/30 transform -translate-y-3 transition-transform duration-200 active:scale-95"
-      >
-        <Plus size={24} />
-      </button>
 
       {/* Current User Info (opens customization panel) */}
       <button

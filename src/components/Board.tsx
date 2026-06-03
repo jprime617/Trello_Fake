@@ -901,7 +901,7 @@ export const Board: React.FC<BoardProps> = ({
       )}
 
       {/* Board Columns container */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden px-4 lg:px-6 py-4 lg:py-6 snap-x snap-mandatory scroll-smooth">
+      <main className="flex-1 overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 snap-x snap-mandatory scroll-smooth">
         {loading ? (
           <div className="w-full h-[60vh] flex flex-col items-center justify-center text-zinc-500 gap-3">
             <Loader2 className="animate-spin text-brand-accent" size={32} />
