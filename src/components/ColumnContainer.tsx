@@ -62,7 +62,7 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
   const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
 
   return (
-    <div className="w-[300px] shrink-0 bg-zinc-950/40 border border-zinc-800/60 rounded-2xl flex flex-col max-h-[82vh] overflow-hidden shadow-xl snap-center relative">
+    <div className="w-[300px] shrink-0 bg-zinc-950/40 border border-zinc-800/60 rounded-2xl flex flex-col h-full max-h-full overflow-hidden shadow-xl snap-center relative">
       {/* Column Header */}
       <div
         {...dragHandleProps}

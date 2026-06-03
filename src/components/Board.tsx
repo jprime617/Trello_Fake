@@ -6,6 +6,7 @@ import { CardModal } from './CardModal';
 import { ColumnModal } from './ColumnModal';
 import { Kanban, Sparkles, Loader2, RefreshCw, Plus, Users, Trash2 } from 'lucide-react';
 import { useCustomModal } from './CustomModals';
+import { Logo } from './Logo';
 
 interface Profile {
   id: string;
@@ -717,8 +718,8 @@ export const Board: React.FC<BoardProps> = ({
         {/* Row 1: Logo, Title & Sprint Selector */}
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-brand-accent/10 border border-brand-accent/40 flex items-center justify-center text-brand-accent shrink-0 shadow-sm shadow-brand-accent/5">
-              <Kanban size={14} />
+            <div className="flex items-center justify-center text-brand-accent shrink-0 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">
+              <Logo size={24} />
             </div>
             <div className="min-w-0">
               <h2 className="text-xs font-extrabold text-white truncate tracking-tight my-0">
