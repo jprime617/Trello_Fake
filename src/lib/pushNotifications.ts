@@ -127,8 +127,9 @@ export async function registerPushNotifications(userId: string): Promise<string>
       throw new Error('Permissão de notificação negada pelo navegador.');
     }
 
-    // Registra ou ativa o service worker padrão
-    const registration = await navigator.serviceWorker.ready;
+    // Registra o service worker especificamente para as notificações
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
 
     // Obtém o token FCM Web
     const token = await getToken(messaging, {

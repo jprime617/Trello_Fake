@@ -26,3 +26,5 @@ dist-ssr
 # Security & Firebase Credentials
 serviceAccountKey.json
 google-services.json
+.env
+.env.*
