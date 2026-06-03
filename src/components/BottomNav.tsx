@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogOut, Plus, Bell, Home } from 'lucide-react';
+import { LogOut, Bell, Home } from 'lucide-react';
 import { useCustomModal } from './CustomModals';
 
 interface Board {
@@ -11,8 +11,6 @@ interface Board {
 interface BottomNavProps {
   userProfile: { full_name: string; avatar_emoji?: string; avatar_url?: string } | null;
   onLogout: () => void;
-  onAddColumnClick: () => void;
-  onAddTaskClick: () => void;
   boards: Board[];
   activeBoardId: string;
   setActiveBoardId: (id: string) => void;

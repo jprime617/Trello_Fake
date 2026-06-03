@@ -829,8 +829,6 @@ function App() {
       <BottomNav
         userProfile={profile}
         onLogout={handleLogout}
-        onAddColumnClick={() => setIsColumnModalOpen(true)}
-        onAddTaskClick={() => setIsCardModalOpen(true)}
         boards={boards}
         activeBoardId={activeBoardId}
         setActiveBoardId={setActiveBoardId}
