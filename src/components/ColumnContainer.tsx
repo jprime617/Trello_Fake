@@ -47,6 +47,9 @@ interface ColumnContainerProps {
   onEditColumnClick: (column: Column) => void;
   onDeleteColumnClick: (columnId: string) => void;
   dragHandleProps?: any;
+  isBulkMode?: boolean;
+  selectedTaskIds?: string[];
+  onToggleSelectTask?: (taskId: string) => void;
 }
 
 export const ColumnContainer: React.FC<ColumnContainerProps> = ({
@@ -59,6 +62,9 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
   onEditColumnClick,
   onDeleteColumnClick,
   dragHandleProps,
+  isBulkMode = false,
+  selectedTaskIds = [],
+  onToggleSelectTask,
 }) => {
   const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
 
@@ -115,6 +121,9 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
                   profiles={profiles}
                   subtasks={subtasks.filter((s) => s.task_id === task.id)}
                   onCardClick={onCardClick as any}
+                  isBulkMode={isBulkMode}
+                  isSelected={selectedTaskIds.includes(task.id)}
+                  onToggleSelect={onToggleSelectTask}
                 />
               ))
             ) : (

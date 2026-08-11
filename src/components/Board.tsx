@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { supabase } from '../lib/supabase';
 import { ColumnContainer } from './ColumnContainer';
 import { CardModal } from './CardModal';
 import { ColumnModal } from './ColumnModal';
-import { Kanban, Sparkles, Loader2, RefreshCw, Plus, Users, Trash2 } from 'lucide-react';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import {
+  Kanban, Sparkles, Loader2, RefreshCw, Plus, Users, Trash2,
+  Search, X, Download, HelpCircle, CheckSquare, FileText, FileSpreadsheet, ChevronDown
+} from 'lucide-react';
 import { useCustomModal } from './CustomModals';
 import { Logo } from './Logo';
 
@@ -120,6 +124,17 @@ export const Board: React.FC<BoardProps> = ({
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
+  // Estados para Busca, Filtros Avançados, Ações em Massa e Atalhos
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high'>('all');
+  const [filterTag, setFilterTag] = useState<string>('all');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Coletar todas as etiquetas únicas presentes nas tarefas do quadro para reutilização
   const projectLabels = useMemo(() => {
     const labelMap = new Map<string, string>();
@@ -137,6 +152,205 @@ export const Board: React.FC<BoardProps> = ({
       color,
     }));
   }, [tasks]);
+
+  // Tarefas Filtradas por busca, participante, prioridade e tag
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      if (filterAssigneeId && task.assignee_id !== filterAssigneeId) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = task.title.toLowerCase().includes(q);
+        const matchDesc = task.description?.toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc) return false;
+      }
+      if (filterPriority !== 'all' && task.priority !== filterPriority) return false;
+      if (filterTag !== 'all') {
+        const hasTag = task.labels?.some((l) => l.name.toLowerCase() === filterTag.toLowerCase());
+        if (!hasTag) return false;
+      }
+      return true;
+    });
+  }, [tasks, filterAssigneeId, searchQuery, filterPriority, filterTag]);
+
+  // Handler para Atalhos Globais de Teclado (Power Users)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target as HTMLElement)?.isContentEditable;
+
+      if (e.key === 'Escape') {
+        if (isShortcutsModalOpen) setIsShortcutsModalOpen(false);
+        else if (isFilterPanelOpen) setIsFilterPanelOpen(false);
+        else if (isExportMenuOpen) setIsExportMenuOpen(false);
+        else if (isBulkMode) { setIsBulkMode(false); setSelectedTaskIds([]); }
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        if (boards.length > 0) {
+          setSelectedColumnId(columns[0]?.id);
+          setEditingTask(null);
+          setIsCardModalOpen(true);
+        }
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setIsFilterPanelOpen((prev) => !prev);
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        setIsBulkMode((prev) => !prev);
+        if (isBulkMode) setSelectedTaskIds([]);
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        setIsExportMenuOpen((prev) => !prev);
+      } else if (e.key === '?') {
+        e.preventDefault();
+        setIsShortcutsModalOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isShortcutsModalOpen, isFilterPanelOpen, isBulkMode, isExportMenuOpen, boards, columns]);
+
+  // Exportação de Dados do Quadro em JSON
+  const activeBoardTitle = boards.find((b) => b.id === activeBoardId)?.title || 'quadro';
+
+  const handleExportJSON = () => {
+    const exportData = {
+      board: activeBoardTitle,
+      exported_at: new Date().toISOString(),
+      columns: columns.map((c) => ({ id: c.id, title: c.title })),
+      tasks: filteredTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        priority: t.priority,
+        due_date: t.due_date,
+        column: columns.find((c) => c.id === t.column_id)?.title || '',
+        labels: t.labels,
+        attachments_count: t.attachments?.length || 0,
+        subtasks: subtasks.filter((s) => s.task_id === t.id).map((s) => ({ title: s.title, is_completed: s.is_completed })),
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kanban-${activeBoardTitle.toLowerCase().replace(/\s+/g, '-')}-export.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setIsExportMenuOpen(false);
+    toast('Quadro exportado em formato JSON com sucesso!', 'success');
+  };
+
+  // Exportação de Dados em CSV
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Título', 'Descrição', 'Coluna', 'Prioridade', 'Responsável', 'Data de Entrega', 'Etiquetas', 'Subtarefas Concluídas'];
+    const rows = filteredTasks.map((t) => {
+      const colName = columns.find((c) => c.id === t.column_id)?.title || '';
+      const assigneeName = profiles.find((p) => p.id === t.assignee_id)?.full_name || 'Sem responsável';
+      const labelNames = (t.labels || []).map((l) => l.name).join('; ');
+      const tSub = subtasks.filter((s) => s.task_id === t.id);
+      const doneSub = tSub.filter((s) => s.is_completed).length;
+      const subText = tSub.length > 0 ? `${doneSub}/${tSub.length}` : 'N/A';
+
+      return [
+        t.id,
+        `"${(t.title || '').replace(/"/g, '""')}"`,
+        `"${(t.description || '').replace(/"/g, '""')}"`,
+        `"${colName}"`,
+        t.priority,
+        `"${assigneeName}"`,
+        t.due_date || '',
+        `"${labelNames}"`,
+        subText,
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kanban-${activeBoardTitle.toLowerCase().replace(/\s+/g, '-')}-export.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setIsExportMenuOpen(false);
+    toast('Quadro exportado em formato CSV com sucesso!', 'success');
+  };
+
+  // Handlers para Seleção e Ações em Massa
+  const handleToggleSelectTask = (taskId: string) => {
+    setSelectedTaskIds((prev) =>
+      prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]
+    );
+  };
+
+  const handleSelectAllTasks = () => {
+    setSelectedTaskIds(filteredTasks.map((t) => t.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTaskIds([]);
+  };
+
+  const handleBulkChangePriority = async (newPriority: 'low' | 'medium' | 'high') => {
+    if (selectedTaskIds.length === 0) return;
+    try {
+      setTasks((prev) =>
+        prev.map((t) => (selectedTaskIds.includes(t.id) ? { ...t, priority: newPriority } : t))
+      );
+      const { error } = await supabase
+        .from('tasks')
+        .update({ priority: newPriority, updated_at: new Date().toISOString() })
+        .in('id', selectedTaskIds);
+      if (error) throw error;
+      toast(`Prioridade alterada para ${newPriority.toUpperCase()} em ${selectedTaskIds.length} tarefas.`, 'success');
+    } catch (err: any) {
+      toast('Erro ao alterar prioridades: ' + err.message, 'error');
+    }
+  };
+
+  const handleBulkMoveColumn = async (targetColumnId: string) => {
+    if (selectedTaskIds.length === 0 || !targetColumnId) return;
+    try {
+      setTasks((prev) =>
+        prev.map((t) => (selectedTaskIds.includes(t.id) ? { ...t, column_id: targetColumnId } : t))
+      );
+      const { error } = await supabase
+        .from('tasks')
+        .update({ column_id: targetColumnId, updated_at: new Date().toISOString() })
+        .in('id', selectedTaskIds);
+      if (error) throw error;
+      const colTitle = columns.find((c) => c.id === targetColumnId)?.title;
+      toast(`${selectedTaskIds.length} tarefas movidas para "${colTitle}".`, 'success');
+    } catch (err: any) {
+      toast('Erro ao mover tarefas: ' + err.message, 'error');
+    }
+  };
+
+  const handleBulkDeleteTasks = async () => {
+    if (selectedTaskIds.length === 0) return;
+    const isConfirmed = await confirm(`Tem certeza que deseja excluir ${selectedTaskIds.length} tarefas selecionadas?`);
+    if (!isConfirmed) return;
+    try {
+      const idsToDelete = [...selectedTaskIds];
+      setTasks((prev) => prev.filter((t) => !idsToDelete.includes(t.id)));
+      setSelectedTaskIds([]);
+      const { error } = await supabase.from('tasks').delete().in('id', idsToDelete);
+      if (error) throw error;
+      toast(`${idsToDelete.length} tarefas excluídas com sucesso.`, 'success');
+    } catch (err: any) {
+      toast('Erro ao excluir tarefas em massa: ' + err.message, 'error');
+    }
+  };
 
   // 1. Carregar todos os dados dependentes da Sprint selecionada
   const fetchData = async () => {
@@ -905,9 +1119,160 @@ export const Board: React.FC<BoardProps> = ({
         </div>
       </header>
 
+      {/* Toolbar Secundária: Busca Instantânea, Filtros, Seleção em Massa & Exportação */}
+      <div className="px-4 lg:px-6 py-2.5 bg-zinc-950/60 border-b border-zinc-800/60 flex flex-wrap items-center justify-between gap-3 shrink-0 select-none backdrop-blur-md">
+        {/* Input de Busca Instantânea */}
+        <div className="flex items-center flex-1 min-w-[200px] max-w-sm gap-2 bg-zinc-900 border border-zinc-800 focus-within:border-indigo-500/80 rounded-xl px-3 py-1.5 transition-all shadow-inner">
+          <Search size={14} className="text-zinc-500 shrink-0" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Buscar por título ou descrição... (/)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent text-xs text-white placeholder-zinc-500 focus:outline-none font-medium"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="text-zinc-500 hover:text-white">
+              <X size={12} />
+            </button>
+          )}
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-zinc-800 border border-zinc-700/60 rounded text-[9px] font-mono text-zinc-400">
+            /
+          </kbd>
+        </div>
+
+        {/* Controles de Filtro e Ferramentas */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Seletor de Prioridade */}
+          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setFilterPriority('all')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                filterPriority === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Todas
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterPriority('high')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                filterPriority === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'text-zinc-400 hover:text-red-400'
+              }`}
+            >
+              Alta
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterPriority('medium')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                filterPriority === 'medium' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-zinc-400 hover:text-amber-400'
+              }`}
+            >
+              Média
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterPriority('low')}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                filterPriority === 'low' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-zinc-400 hover:text-emerald-400'
+              }`}
+            >
+              Baixa
+            </button>
+          </div>
+
+          {/* Filtro por Etiqueta */}
+          {projectLabels.length > 0 && (
+            <select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              className="bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-300 font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">🏷️ Etiquetas (Todas)</option>
+              {projectLabels.map((l) => (
+                <option key={l.name} value={l.name}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Alternar Modo de Seleção em Massa */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsBulkMode((prev) => !prev);
+              if (isBulkMode) setSelectedTaskIds([]);
+            }}
+            title="Modo de Seleção em Massa (Atalho: B)"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+              isBulkMode
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/20'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
+            }`}
+          >
+            <CheckSquare size={13} />
+            <span className="hidden md:inline">Seleção</span>
+            {selectedTaskIds.length > 0 && (
+              <span className="w-4 h-4 rounded-full bg-white text-indigo-950 font-extrabold text-[9px] flex items-center justify-center">
+                {selectedTaskIds.length}
+              </span>
+            )}
+          </button>
+
+          {/* Menu Dropdown de Exportação */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              title="Exportar Quadro (Atalho: E)"
+              className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+            >
+              <Download size={13} />
+              <span className="hidden md:inline">Exportar</span>
+              <ChevronDown size={12} className="text-zinc-500" />
+            </button>
+
+            {isExportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl z-50 p-1 space-y-1 animate-in fade-in zoom-in-95">
+                <button
+                  type="button"
+                  onClick={handleExportJSON}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
+                >
+                  <FileText size={14} className="text-indigo-400" />
+                  <span>Exportar como JSON</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} className="text-emerald-400" />
+                  <span>Exportar como CSV</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Botão de Atalhos */}
+          <button
+            type="button"
+            onClick={() => setIsShortcutsModalOpen(true)}
+            title="Guia de Atalhos de Teclado (Atalho: ?)"
+            className="p-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-indigo-400 rounded-xl transition-all cursor-pointer"
+          >
+            <HelpCircle size={15} />
+          </button>
+        </div>
+      </div>
+
       {/* Banner de Filtro de Participante */}
       {filterAssigneeId && (
-        <div className="mx-4 lg:mx-6 mb-2 px-4 py-2 bg-brand-accent/10 border border-brand-accent/25 rounded-xl flex items-center justify-between text-xs text-brand-accent font-semibold select-none animate-fadeIn">
+        <div className="mx-4 lg:mx-6 my-2 px-4 py-2 bg-brand-accent/10 border border-brand-accent/25 rounded-xl flex items-center justify-between text-xs text-brand-accent font-semibold select-none animate-fadeIn">
           <span className="flex items-center gap-2">
             <Sparkles size={14} className="text-brand-accent animate-pulse" />
             <span>
@@ -970,11 +1335,7 @@ export const Board: React.FC<BoardProps> = ({
                           >
                             <ColumnContainer
                               column={column}
-                              tasks={tasks.filter(
-                                (t) =>
-                                  t.column_id === column.id &&
-                                  (!filterAssigneeId || t.assignee_id === filterAssigneeId)
-                              )}
+                              tasks={filteredTasks.filter((t) => t.column_id === column.id)}
                               profiles={profiles}
                               subtasks={subtasks}
                               onCardClick={(task) => {
@@ -991,6 +1352,9 @@ export const Board: React.FC<BoardProps> = ({
                               }}
                               onDeleteColumnClick={handleDeleteColumn}
                               dragHandleProps={dragProvided.dragHandleProps}
+                              isBulkMode={isBulkMode}
+                              selectedTaskIds={selectedTaskIds}
+                              onToggleSelectTask={handleToggleSelectTask}
                             />
                           </div>
                         )}
@@ -1054,6 +1418,89 @@ export const Board: React.FC<BoardProps> = ({
         onDeleteComment={handleDeleteComment}
         projectLabels={projectLabels}
       />
+
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+      />
+
+      {/* Barra Flutuante de Ações em Massa */}
+      {selectedTaskIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-zinc-950/95 border border-indigo-500/60 rounded-2xl px-5 py-3 shadow-2xl shadow-indigo-950/50 backdrop-blur-xl flex flex-wrap items-center gap-4 animate-in slide-in-from-bottom-5 duration-200 select-none">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-xs font-extrabold text-white">
+              {selectedTaskIds.length} tarefas selecionadas
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Alterar Prioridade em Massa */}
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkChangePriority(e.target.value as any);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+              className="bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="" disabled>Alterar Prioridade...</option>
+              <option value="high">Alta Prioridade</option>
+              <option value="medium">Média Prioridade</option>
+              <option value="low">Baixa Prioridade</option>
+            </select>
+
+            {/* Mover para Coluna em Massa */}
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkMoveColumn(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+              className="bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer max-w-[150px] truncate"
+            >
+              <option value="" disabled>Mover para Coluna...</option>
+              {columns.map((col) => (
+                <option key={col.id} value={col.id}>{col.title}</option>
+              ))}
+            </select>
+
+            {/* Selecionar todas / Desmarcar */}
+            <button
+              type="button"
+              onClick={selectedTaskIds.length === filteredTasks.length ? handleClearSelection : handleSelectAllTasks}
+              className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            >
+              {selectedTaskIds.length === filteredTasks.length ? 'Desmarcar' : 'Selecionar Todas'}
+            </button>
+
+            {/* Excluir em Massa */}
+            <button
+              type="button"
+              onClick={handleBulkDeleteTasks}
+              className="px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 text-red-300 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+            >
+              <Trash2 size={13} />
+              <span>Excluir</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="p-1.5 text-zinc-500 hover:text-white rounded-lg transition-colors ml-1 cursor-pointer"
+              title="Cancelar Seleção"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {isMembersDrawerOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in" onClick={() => {

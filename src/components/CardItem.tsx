@@ -37,6 +37,9 @@ interface CardItemProps {
   profiles: Profile[];
   subtasks: Subtask[];
   onCardClick: (task: Task) => void;
+  isBulkMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (taskId: string) => void;
 }
 
 export const CardItem: React.FC<CardItemProps> = ({
@@ -45,6 +48,9 @@ export const CardItem: React.FC<CardItemProps> = ({
   profiles,
   subtasks,
   onCardClick,
+  isBulkMode = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const assignee = profiles.find((p) => p.id === task.assignee_id);
 
@@ -115,12 +121,10 @@ export const CardItem: React.FC<CardItemProps> = ({
     });
   };
 
-  // Encontrar o primeiro anexo de imagem para usar como capa do cartão
   const imageAttachment = task.attachments?.find(
     (att) => att.type === 'image' || att.name.match(/\.(jpeg|jpg|gif|png)$/i)
   );
 
-  // Calcular progresso do checklist
   const totalSub = subtasks.length;
   const completedSub = subtasks.filter((s) => s.is_completed).length;
   const progressPercent = totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0;
@@ -132,10 +136,18 @@ export const CardItem: React.FC<CardItemProps> = ({
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          onClick={() => onCardClick(task)}
-          className={`p-4 mb-3 bg-zinc-900/90 border border-zinc-800/80 rounded-xl transition-all duration-200 hover:border-brand-accent/50 hover:bg-zinc-900 group cursor-pointer select-none active:scale-[0.99] overflow-hidden ${
-            snapshot.isDragging ? 'dragging-card' : ''
-          }`}
+          onClick={() => {
+            if (isBulkMode && onToggleSelect) {
+              onToggleSelect(task.id);
+            } else {
+              onCardClick(task);
+            }
+          }}
+          className={`p-4 mb-3 rounded-xl transition-all duration-200 group cursor-pointer select-none active:scale-[0.99] overflow-hidden border ${
+            isSelected
+              ? 'bg-indigo-950/30 border-indigo-500 shadow-md shadow-indigo-500/10'
+              : 'bg-zinc-900/90 border-zinc-800/80 hover:border-brand-accent/50 hover:bg-zinc-900'
+          } ${snapshot.isDragging ? 'dragging-card' : ''}`}
         >
           {/* Cover image if task contains image attachments */}
           {imageAttachment && (
@@ -164,15 +176,29 @@ export const CardItem: React.FC<CardItemProps> = ({
             </div>
           )}
 
-          {/* Card Header Tags */}
+          {/* Card Header Tags & Checkbox */}
           <div className="flex items-center justify-between gap-2 mb-2.5">
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${getPriorityStyles(
-                task.priority
-              )}`}
-            >
-              {getPriorityLabel(task.priority)}
-            </span>
+            <div className="flex items-center gap-2">
+              {(isBulkMode || isSelected) && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    if (onToggleSelect) onToggleSelect(task.id);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-zinc-950 cursor-pointer h-4 w-4 shrink-0"
+                />
+              )}
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${getPriorityStyles(
+                  task.priority
+                )}`}
+              >
+                {getPriorityLabel(task.priority)}
+              </span>
+            </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500">
               <Eye size={14} className="hover:text-brand-accent" />
             </div>
