@@ -71,6 +71,7 @@ interface CardModalProps {
   onDelete?: (taskId: string) => void;
   editingTask: Task | null;
   profiles: Profile[];
+  allProfiles?: Profile[];
   defaultColumnId?: string;
   subtasks: Subtask[];
   onAddSubtask: (title: string, taskId: string, assigneeId?: string) => Promise<void>;
@@ -91,6 +92,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   onDelete,
   editingTask,
   profiles,
+  allProfiles = [],
   defaultColumnId,
   subtasks,
   onAddSubtask,
@@ -598,7 +600,9 @@ export const CardModal: React.FC<CardModalProps> = ({
                 <div className="space-y-2">
                   {subtasks.length > 0 ? (
                     subtasks.map((sub) => {
-                      const subAssignee = profiles.find((p) => p.id === sub.assignee_id);
+                      const subAssignee =
+                        profiles.find((p) => p.id === sub.assignee_id) ||
+                        allProfiles.find((p) => p.id === sub.assignee_id);
                       return (
                         <div
                           key={sub.id}
@@ -655,6 +659,13 @@ export const CardModal: React.FC<CardModalProps> = ({
                                   {p.full_name}
                                 </option>
                               ))}
+                              {sub.assignee_id &&
+                                !profiles.some((p) => p.id === sub.assignee_id) &&
+                                subAssignee && (
+                                  <option value={sub.assignee_id} disabled>
+                                    {subAssignee.full_name} (Fora do projeto)
+                                  </option>
+                                )}
                             </select>
 
                             <button

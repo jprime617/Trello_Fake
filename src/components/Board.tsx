@@ -149,8 +149,8 @@ export const Board: React.FC<BoardProps> = ({
     try {
       setLoading(true);
 
-      // Carregar Perfis (limitar aos membros do projeto ativo se especificado)
-      if (projectMembers && projectMembers.length > 0) {
+      // Carregar Perfis (limitar estritamente aos membros do projeto ativo)
+      if (projectMembers) {
         setProfiles(projectMembers);
       } else {
         const { data: profileData, error: profileErr } = await supabase
@@ -387,7 +387,7 @@ export const Board: React.FC<BoardProps> = ({
 
   // Sincronizar perfis locais com projectMembers caso mude via Sidebar
   useEffect(() => {
-    if (projectMembers && projectMembers.length > 0) {
+    if (projectMembers) {
       setProfiles(projectMembers);
     }
   }, [projectMembers]);
@@ -1040,7 +1040,8 @@ export const Board: React.FC<BoardProps> = ({
         onSave={handleSaveCard}
         onDelete={handleDeleteCard}
         editingTask={editingTask}
-        profiles={profiles}
+        profiles={projectMembers && projectMembers.length > 0 ? projectMembers : profiles}
+        allProfiles={allProfiles}
         defaultColumnId={selectedColumnId}
         subtasks={subtasks.filter((s) => editingTask && s.task_id === editingTask.id)}
         onAddSubtask={handleAddSubtask}
