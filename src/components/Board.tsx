@@ -833,22 +833,44 @@ export const Board: React.FC<BoardProps> = ({
   // 9. Handlers para Subtarefas (Checklist)
   const handleAddSubtask = async (title: string, taskId: string, assigneeId?: string) => {
     try {
-      const { data, error } = await supabase
+      const payload: any = {
+        task_id: taskId,
+        title,
+        is_completed: false,
+      };
+      if (assigneeId) {
+        payload.assignee_id = assigneeId;
+      }
+
+      let { data, error } = await supabase
         .from('subtasks')
-        .insert({
-          task_id: taskId,
-          title,
-          is_completed: false,
-          assignee_id: assigneeId || null,
-        })
+        .insert(payload)
         .select()
         .single();
+
+      // Fallback gracioso caso a coluna assignee_id ainda não exista na tabela subtasks do Supabase
+      if (error && (error.message?.includes('assignee_id') || error.code === '42703' || error.message?.includes('schema cache'))) {
+        delete payload.assignee_id;
+        const fallback = await supabase
+          .from('subtasks')
+          .insert(payload)
+          .select()
+          .single();
+
+        if (!fallback.error && fallback.data) {
+          data = fallback.data;
+          error = null;
+          toast('Subtarefa criada com sucesso! Para habilitar a atribuição de responsáveis por item, execute a migração subtask_assignee_migration.sql no SQL Editor do Supabase.', 'info');
+        }
+      }
+
       if (error) throw error;
       if (data) {
         setSubtasks((prev) => [...prev, data as Subtask]);
       }
     } catch (err: any) {
-      toast('Erro ao adicionar subtarefa: ' + err.message, 'error');
+      console.error('Erro ao adicionar subtarefa:', err);
+      toast('Erro ao adicionar subtarefa: ' + (err.message || 'Erro desconhecido'), 'error');
     }
   };
 
@@ -862,7 +884,14 @@ export const Board: React.FC<BoardProps> = ({
         .from('subtasks')
         .update({ assignee_id: assigneeId || null })
         .eq('id', subtaskId);
-      if (error) throw error;
+
+      if (error) {
+        if (error.message?.includes('assignee_id') || error.code === '42703' || error.message?.includes('schema cache')) {
+          toast('Para salvar atribuição de responsáveis em itens de checklist, execute a migração subtask_assignee_migration.sql no Supabase.', 'info');
+          return;
+        }
+        throw error;
+      }
     } catch (err: any) {
       toast('Erro ao atualizar responsável do item: ' + err.message, 'error');
     }
