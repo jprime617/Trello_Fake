@@ -283,14 +283,14 @@ export const CardModal: React.FC<CardModalProps> = ({
 
   const getTagColorClass = (color: string) => {
     switch (color) {
-      case 'red':    return 'bg-red-500/15 text-red-400 border border-red-500/30';
-      case 'emerald':return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      case 'amber':  return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
-      case 'blue':   return 'bg-blue-500/15 text-blue-400 border border-blue-500/30';
+      case 'red': return 'bg-red-500/15 text-red-400 border border-red-500/30';
+      case 'emerald': return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+      case 'amber': return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
+      case 'blue': return 'bg-blue-500/15 text-blue-400 border border-blue-500/30';
       case 'purple': return 'bg-purple-500/15 text-purple-400 border border-purple-500/30';
-      case 'pink':   return 'bg-pink-500/15 text-pink-400 border border-pink-500/30';
+      case 'pink': return 'bg-pink-500/15 text-pink-400 border border-pink-500/30';
       case 'indigo':
-      default:       return 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30';
+      default: return 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30';
     }
   };
 
@@ -335,17 +335,16 @@ export const CardModal: React.FC<CardModalProps> = ({
               { key: 'details', icon: <AlignLeft size={13} />, label: 'Geral', badge: null },
               { key: 'checklist', icon: <ListTodo size={13} />, label: 'Checklist', badge: totalSub > 0 ? `${completedSub}/${totalSub}` : null },
               { key: 'attachments', icon: <Paperclip size={13} />, label: 'Anexos', badge: attachments.length > 0 ? `${attachments.length}` : null },
-              { key: 'comments', icon: <MessageSquare size={13} />, label: 'Comentários', badge: comments.length > 0 ? `${comments.length}` : null },
+              { key: 'comments', icon: <MessageSquare size={13} />, label: 'Chat', badge: comments.length > 0 ? `${comments.length}` : null },
             ] as const).map((tab) => (
               <button
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                  activeTab === tab.key
+                className={`px-3 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${activeTab === tab.key
                     ? 'border-indigo-500 text-indigo-400 bg-indigo-500/5'
                     : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                }`}
+                  }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
@@ -458,9 +457,8 @@ export const CardModal: React.FC<CardModalProps> = ({
                         key={level}
                         type="button"
                         onClick={() => setPriority(level)}
-                        className={`py-2 px-3 border rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${
-                          isSelected ? selectedColors[level] : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                        }`}
+                        className={`py-2 px-3 border rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${isSelected ? selectedColors[level] : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                          }`}
                       >
                         {labelsText[level]}
                       </button>
@@ -510,11 +508,10 @@ export const CardModal: React.FC<CardModalProps> = ({
                           key={idx}
                           type="button"
                           onClick={() => handleToggleProjectTag(lbl)}
-                          className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                            isSelected
+                          className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${isSelected
                               ? `${getTagColorClass(lbl.color)} border-brand-accent/30 shadow-sm`
                               : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60'
-                          }`}
+                            }`}
                         >
                           {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
                           <span>{lbl.name}</span>
@@ -718,8 +715,8 @@ export const CardModal: React.FC<CardModalProps> = ({
                         <div className="w-8 h-8 rounded-lg bg-zinc-950 flex items-center justify-center border border-zinc-900 shrink-0">
                           {isImg ? <Image size={14} className="text-blue-400" />
                             : isPdf ? <FileText size={14} className="text-red-400" />
-                            : isZip ? <FileArchive size={14} className="text-yellow-400" />
-                            : <Link size={14} className="text-indigo-400" />}
+                              : isZip ? <FileArchive size={14} className="text-yellow-400" />
+                                : <Link size={14} className="text-indigo-400" />}
                         </div>
                         <div className="min-w-0 leading-tight">
                           <h5 className="text-xs font-semibold text-white truncate max-w-[200px] md:max-w-[280px]">{att.name}</h5>
