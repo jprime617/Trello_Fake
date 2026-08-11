@@ -42,6 +42,7 @@ interface Subtask {
   task_id: string;
   title: string;
   is_completed: boolean;
+  assignee_id?: string;
 }
 
 interface Comment {
@@ -616,11 +617,16 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   // 9. Handlers para Subtarefas (Checklist)
-  const handleAddSubtask = async (title: string, taskId: string) => {
+  const handleAddSubtask = async (title: string, taskId: string, assigneeId?: string) => {
     try {
       const { data, error } = await supabase
         .from('subtasks')
-        .insert({ task_id: taskId, title, is_completed: false })
+        .insert({
+          task_id: taskId,
+          title,
+          is_completed: false,
+          assignee_id: assigneeId || null,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -629,6 +635,22 @@ export const Board: React.FC<BoardProps> = ({
       }
     } catch (err: any) {
       toast('Erro ao adicionar subtarefa: ' + err.message, 'error');
+    }
+  };
+
+  const handleAssignSubtask = async (subtaskId: string, assigneeId?: string) => {
+    try {
+      setSubtasks((prev) =>
+        prev.map((s) => (s.id === subtaskId ? { ...s, assignee_id: assigneeId } : s))
+      );
+
+      const { error } = await supabase
+        .from('subtasks')
+        .update({ assignee_id: assigneeId || null })
+        .eq('id', subtaskId);
+      if (error) throw error;
+    } catch (err: any) {
+      toast('Erro ao atualizar responsável do item: ' + err.message, 'error');
     }
   };
 
@@ -1024,6 +1046,7 @@ export const Board: React.FC<BoardProps> = ({
         onAddSubtask={handleAddSubtask}
         onToggleSubtask={handleToggleSubtask}
         onDeleteSubtask={handleDeleteSubtask}
+        onAssignSubtask={handleAssignSubtask}
         userId={userId}
         comments={comments.filter((c) => editingTask && c.task_id === editingTask.id)}
         onAddComment={handleAddComment}

@@ -28,6 +28,7 @@ interface Subtask {
   task_id: string;
   title: string;
   is_completed: boolean;
+  assignee_id?: string;
 }
 
 interface CardItemProps {

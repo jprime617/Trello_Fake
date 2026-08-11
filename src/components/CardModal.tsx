@@ -47,6 +47,7 @@ interface Subtask {
   task_id: string;
   title: string;
   is_completed: boolean;
+  assignee_id?: string;
 }
 
 interface Comment {
@@ -72,9 +73,10 @@ interface CardModalProps {
   profiles: Profile[];
   defaultColumnId?: string;
   subtasks: Subtask[];
-  onAddSubtask: (title: string, taskId: string) => Promise<void>;
+  onAddSubtask: (title: string, taskId: string, assigneeId?: string) => Promise<void>;
   onToggleSubtask: (subtaskId: string, isCompleted: boolean) => Promise<void>;
   onDeleteSubtask: (subtaskId: string) => Promise<void>;
+  onAssignSubtask: (subtaskId: string, assigneeId?: string) => Promise<void>;
   userId: string;
   comments: Comment[];
   onAddComment: (content: string, taskId: string) => Promise<void>;
@@ -94,6 +96,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  onAssignSubtask,
   userId,
   comments,
   onAddComment,
@@ -113,6 +116,7 @@ export const CardModal: React.FC<CardModalProps> = ({
 
   // Modais e inputs internos
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [newSubtaskAssigneeId, setNewSubtaskAssigneeId] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('indigo');
   const [newCommentText, setNewCommentText] = useState('');
@@ -153,6 +157,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       setAttachments([]);
     }
     setNewSubtaskTitle('');
+    setNewSubtaskAssigneeId('');
     setNewTagName('');
     setLinkTitle('');
     setLinkUrl('');
@@ -191,8 +196,9 @@ export const CardModal: React.FC<CardModalProps> = ({
   const handleAddSubtaskItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim() || !editingTask) return;
-    await onAddSubtask(newSubtaskTitle.trim(), editingTask.id);
+    await onAddSubtask(newSubtaskTitle.trim(), editingTask.id, newSubtaskAssigneeId || undefined);
     setNewSubtaskTitle('');
+    setNewSubtaskAssigneeId('');
   };
 
   // Etiquetas: Adicionar etiqueta
@@ -591,42 +597,85 @@ export const CardModal: React.FC<CardModalProps> = ({
                 {/* Subtasks Checklist */}
                 <div className="space-y-2">
                   {subtasks.length > 0 ? (
-                    subtasks.map((sub) => (
-                      <div
-                        key={sub.id}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900/30 border border-zinc-900 hover:border-zinc-800/80 transition-colors group/sub"
-                      >
-                        <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={sub.is_completed}
-                            onChange={(e) => onToggleSubtask(sub.id, e.target.checked)}
-                            className="rounded border-zinc-800 text-indigo-600 focus:ring-indigo-500 bg-zinc-900 cursor-pointer h-4 w-4 shrink-0"
-                          />
-                          <span
-                            className={`text-xs font-semibold truncate ${
-                              sub.is_completed ? 'line-through text-zinc-500' : 'text-zinc-200'
-                            }`}
-                          >
-                            {sub.title}
-                          </span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => onDeleteSubtask(sub.id)}
-                          className="p-1 text-zinc-500 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity rounded-md cursor-pointer"
+                    subtasks.map((sub) => {
+                      const subAssignee = profiles.find((p) => p.id === sub.assignee_id);
+                      return (
+                        <div
+                          key={sub.id}
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-900 hover:border-zinc-800 transition-colors group/sub"
                         >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={sub.is_completed}
+                              onChange={(e) => onToggleSubtask(sub.id, e.target.checked)}
+                              className="rounded border-zinc-800 text-indigo-600 focus:ring-indigo-500 bg-zinc-900 cursor-pointer h-4 w-4 shrink-0"
+                            />
+                            <span
+                              className={`text-xs font-semibold truncate ${
+                                sub.is_completed ? 'line-through text-zinc-500' : 'text-zinc-200'
+                              }`}
+                            >
+                              {sub.title}
+                            </span>
+                            {subAssignee && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] text-zinc-300 bg-zinc-800/80 px-2 py-0.5 rounded-md border border-zinc-700/50 shrink-0 font-medium"
+                                title={`Atribuído a ${subAssignee.full_name}`}
+                              >
+                                {subAssignee.avatar_url ? (
+                                  <img
+                                    src={subAssignee.avatar_url}
+                                    alt={subAssignee.full_name}
+                                    className="w-3.5 h-3.5 rounded-full object-cover"
+                                  />
+                                ) : subAssignee.avatar_emoji ? (
+                                  <span className="text-[11px]">{subAssignee.avatar_emoji}</span>
+                                ) : (
+                                  <User size={10} className="text-indigo-400" />
+                                )}
+                                <span className="truncate max-w-[90px]">
+                                  {subAssignee.full_name.split(' ')[0]}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Seletor de Responsável e Botão Excluir */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <select
+                              value={sub.assignee_id || ''}
+                              onChange={(e) => onAssignSubtask(sub.id, e.target.value || undefined)}
+                              className="bg-zinc-950/90 text-[11px] text-zinc-300 border border-zinc-800 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 hover:border-zinc-700 cursor-pointer transition-colors max-w-[130px] truncate"
+                              title="Alterar responsável do item"
+                            >
+                              <option value="">👤 Sem resp.</option>
+                              {profiles.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.full_name}
+                                </option>
+                              ))}
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => onDeleteSubtask(sub.id)}
+                              className="p-1.5 text-zinc-500 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity rounded-md cursor-pointer hover:bg-zinc-800/50"
+                              title="Excluir item"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
                     <p className="text-[11px] text-zinc-600 pl-2">Nenhum item adicionado ao checklist</p>
                   )}
                 </div>
 
                 {/* Subtask Adder Form */}
-                <form onSubmit={handleAddSubtaskItem} className="flex gap-2">
+                <form onSubmit={handleAddSubtaskItem} className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     placeholder="Adicionar um item de tarefa..."
@@ -635,13 +684,28 @@ export const CardModal: React.FC<CardModalProps> = ({
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 text-xs font-semibold flex-1"
                   />
-                  <button
-                    type="submit"
-                    className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5"
-                  >
-                    <Plus size={14} />
-                    <span>Adicionar</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={newSubtaskAssigneeId}
+                      onChange={(e) => setNewSubtaskAssigneeId(e.target.value)}
+                      className="px-2.5 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-indigo-500 text-xs font-semibold max-w-[140px] truncate cursor-pointer"
+                      title="Atribuir responsável ao novo item"
+                    >
+                      <option value="">👤 Sem resp.</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.full_name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Adicionar</span>
+                    </button>
+                  </div>
                 </form>
               </div>
             ) : (

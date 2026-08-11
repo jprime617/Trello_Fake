@@ -28,3 +28,7 @@ serviceAccountKey.json
 google-services.json
 .env
 .env.*
+
+
+.venv
+
