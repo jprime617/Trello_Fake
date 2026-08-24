@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, type DropResult, type DragStart } from '@hello-pangea/dnd';
 import { supabase } from '../lib/supabase';
 import { getPriorityClasses } from '../lib/colors';
 import { ColumnContainer } from './ColumnContainer';
@@ -127,7 +127,8 @@ export const Board: React.FC<BoardProps> = ({
   const [isAddingMemberMobile, setIsAddingMemberMobile] = useState(false);
   const [selectedMemberEmailMobile, setSelectedMemberEmailMobile] = useState('');
   const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<'column' | 'task' | null>(null);
+  const isDragging = dragType !== null;
 
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -142,7 +143,6 @@ export const Board: React.FC<BoardProps> = ({
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const boardScrollRef = useRef<HTMLElement>(null);
 
   // Coletar todas as etiquetas únicas presentes nas tarefas do quadro para reutilização
   const projectLabels = useMemo(() => {
@@ -628,12 +628,12 @@ export const Board: React.FC<BoardProps> = ({
   }, [projectMembers]);
 
   // 4. Lógica do Drag and Drop
-  const onDragStart = () => {
-    setIsDragging(true);
+  const onDragStart = (start: DragStart) => {
+    setDragType(start.type === 'column' ? 'column' : 'task');
   };
 
   const onDragEnd = async (result: DropResult) => {
-    setIsDragging(false);
+    setDragType(null);
     const { destination, source, draggableId, type } = result;
 
     if (!destination) return;
@@ -759,51 +759,13 @@ export const Board: React.FC<BoardProps> = ({
     }
   };
 
-  // Auto-scroll do quadro horizontalmente ao arrastar uma tarefa perto da borda.
-  // A biblioteca de dnd só rola o ancestral com scroll mais próximo do item arrastado —
-  // para uma tarefa, isso é a lista vertical da própria coluna, não o quadro horizontal.
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const EDGE_SIZE = 90;
-    const MAX_SPEED = 16;
-    const pointerX = { current: null as number | null };
-
-    const handlePointerMove = (clientX: number) => {
-      pointerX.current = clientX;
-    };
-    const handleMouseMove = (e: MouseEvent) => handlePointerMove(e.clientX);
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches[0]) handlePointerMove(e.touches[0].clientX);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('touchmove', handleTouchMove);
-
-    let rafId: number;
-    const tick = () => {
-      const container = boardScrollRef.current;
-      const x = pointerX.current;
-      if (container && x !== null) {
-        const rect = container.getBoundingClientRect();
-        let delta = 0;
-        if (x < rect.left + EDGE_SIZE) {
-          delta = -MAX_SPEED * Math.min(1, (rect.left + EDGE_SIZE - x) / EDGE_SIZE);
-        } else if (x > rect.right - EDGE_SIZE) {
-          delta = MAX_SPEED * Math.min(1, (x - (rect.right - EDGE_SIZE)) / EDGE_SIZE);
-        }
-        if (delta !== 0) container.scrollLeft += delta;
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchmove', handleTouchMove);
-      cancelAnimationFrame(rafId);
-    };
-  }, [isDragging]);
+  // Enquanto uma tarefa é arrastada, a lista vertical da própria coluna é o ancestral
+  // com scroll mais próximo, então é isso que a biblioteca de dnd rola automaticamente —
+  // nunca o quadro horizontal. Suprimimos o scroll vertical das colunas nesse momento para
+  // que a biblioteca encontre o quadro (scroll horizontal) como o ancestral rolável mais
+  // próximo, e assim ela mesma cuide do auto-scroll horizontal com a geometria sempre em dia
+  // (evita o desalinhamento que ocorre ao mexer no scrollLeft manualmente por fora dela).
+  const suppressColumnScroll = isDragging && dragType === 'task';
 
   // 5. Salvar/Criar Coluna
   const handleSaveColumn = async (title: string) => {
@@ -1421,7 +1383,6 @@ export const Board: React.FC<BoardProps> = ({
 
       {/* Board Columns container */}
       <main
-        ref={boardScrollRef}
         className={`flex-1 flex overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 min-h-0 ${
           isDragging ? '' : 'snap-x snap-mandatory scroll-smooth'
         }`}
@@ -1485,6 +1446,7 @@ export const Board: React.FC<BoardProps> = ({
                               }}
                               onDeleteColumnClick={handleDeleteColumn}
                               dragHandleProps={dragProvided.dragHandleProps}
+                              suppressScroll={suppressColumnScroll}
                               isBulkMode={isBulkMode}
                               selectedTaskIds={selectedTaskIds}
                               onToggleSelectTask={handleToggleSelectTask}

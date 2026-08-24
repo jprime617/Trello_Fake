@@ -50,6 +50,10 @@ interface ColumnContainerProps {
   isBulkMode?: boolean;
   selectedTaskIds?: string[];
   onToggleSelectTask?: (taskId: string) => void;
+  /** While true, the task list gives up its own scroll so the board's horizontal
+   *  scroll container becomes the closest scrollable ancestor for a dragged task —
+   *  letting @hello-pangea/dnd auto-scroll the board itself, with correct geometry. */
+  suppressScroll?: boolean;
 }
 
 export const ColumnContainer: React.FC<ColumnContainerProps> = ({
@@ -65,6 +69,7 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
   isBulkMode = false,
   selectedTaskIds = [],
   onToggleSelectTask,
+  suppressScroll = false,
 }) => {
   const sortedTasks = [...tasks].sort((a, b) => a.position - b.position);
 
@@ -113,7 +118,7 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 overflow-y-auto px-3 py-4 transition-all no-scrollbar ${
+            className={`flex-1 px-3 py-4 transition-all no-scrollbar ${suppressScroll ? 'overflow-y-visible' : 'overflow-y-auto'} ${
               snapshot.isDraggingOver ? 'bg-indigo-950/10' : ''
             }`}
             style={{ minHeight: '100px' }}
