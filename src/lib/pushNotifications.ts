@@ -157,6 +157,22 @@ export async function unregisterPushNotifications() {
 }
 
 /**
+ * Registra o listener de toque em notificações no app nativo (Android/iOS).
+ * No app empacotado via Capacitor, o toque na notificação não navega por URL
+ * (o WebView carrega uma URL fixa) — ele dispara este evento JS, inclusive
+ * em cold start (o Capacitor entrega o toque assim que o listener é registrado).
+ */
+export function listenForNotificationTaps(
+  onOpen: (data: { taskId?: string; boardId?: string; projectId?: string }) => void
+) {
+  if (!Capacitor.isNativePlatform()) return;
+
+  PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+    onOpen(action.notification.data || {});
+  });
+}
+
+/**
  * Obtém o status da permissão atual de notificação
  */
 export async function getNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'default'> {

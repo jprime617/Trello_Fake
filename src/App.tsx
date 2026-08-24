@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import { listenForNotificationTaps } from './lib/pushNotifications';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
@@ -66,6 +67,13 @@ function App() {
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [selectedColumnId, setSelectedColumnId] = useState<string | undefined>(undefined);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  // Deep-link pendente vindo de uma notificação push (chat ou prazo de task)
+  const [pendingDeepLink, setPendingDeepLink] = useState<{
+    taskId?: string;
+    boardId?: string;
+    projectId?: string;
+  } | null>(null);
 
   // Carregar o perfil do usuário logado
   const fetchUserProfile = async (userId: string) => {
@@ -417,6 +425,49 @@ function App() {
       setFilterAssigneeId('');
     }
   }, [activeProjectId]);
+
+  // Captura o deep-link de uma notificação push: via query string no fluxo
+  // Web/PWA (aberta pelo Service Worker) e via listener nativo no APK Android
+  // (o toque na notificação não navega por URL, dispara um evento JS).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get('openTask') || undefined;
+    const boardId = params.get('openBoard') || undefined;
+    const projectId = params.get('openProject') || undefined;
+
+    if (taskId || boardId || projectId) {
+      setPendingDeepLink({ taskId, boardId, projectId });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('openTask');
+      url.searchParams.delete('openBoard');
+      url.searchParams.delete('openProject');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    listenForNotificationTaps((data) => {
+      if (data.taskId || data.boardId || data.projectId) {
+        setPendingDeepLink(data);
+      }
+    });
+  }, []);
+
+  // Assim que o projeto do deep-link estiver disponível, torna-o ativo
+  useEffect(() => {
+    if (!pendingDeepLink?.projectId) return;
+    const exists = projects.some((p) => p.id === pendingDeepLink.projectId);
+    if (exists && activeProjectId !== pendingDeepLink.projectId) {
+      setActiveProjectId(pendingDeepLink.projectId);
+    }
+  }, [projects, pendingDeepLink]);
+
+  // Assim que o board do deep-link estiver disponível, torna-o ativo
+  useEffect(() => {
+    if (!pendingDeepLink?.boardId) return;
+    const exists = boards.some((b) => b.id === pendingDeepLink.boardId);
+    if (exists && activeBoardId !== pendingDeepLink.boardId) {
+      setActiveBoardId(pendingDeepLink.boardId);
+    }
+  }, [boards, pendingDeepLink]);
 
   useEffect(() => {
     let active = true;
@@ -823,6 +874,8 @@ function App() {
         filterAssigneeId={filterAssigneeId}
         setFilterAssigneeId={setFilterAssigneeId}
         boardBackground={profile?.board_background}
+        deepLinkTaskId={pendingDeepLink?.taskId}
+        onDeepLinkConsumed={() => setPendingDeepLink(null)}
       />
 
       {/* Mobile Bottom Navigation (visível apenas em dispositivos móveis) */}

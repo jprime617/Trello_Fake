@@ -95,7 +95,12 @@ async function runDeadlineCheck() {
       due_date,
       assignee_id,
       columns (
-        title
+        title,
+        board_id,
+        boards (
+          id,
+          project_id
+        )
       )
     `)
     .not('due_date', 'is', null)
@@ -126,7 +131,7 @@ async function runDeadlineCheck() {
   // 3. Buscar perfis dos usuários que possuem alert_preference configurado
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('id, full_name, alert_preference')
+    .select('id, full_name, alert_preference, notify_task_deadlines')
     .not('alert_preference', 'is', null);
 
   if (profilesError) {
@@ -135,11 +140,12 @@ async function runDeadlineCheck() {
   }
 
   // Criar um mapa rápido de perfis para consulta por id
-  const profileMap = new Map<string, { full_name: string; alert_preference: string }>();
+  const profileMap = new Map<string, { full_name: string; alert_preference: string; notify_task_deadlines: boolean }>();
   profiles.forEach(p => {
     profileMap.set(p.id, {
       full_name: p.full_name,
-      alert_preference: p.alert_preference || '48h'
+      alert_preference: p.alert_preference || '48h',
+      notify_task_deadlines: p.notify_task_deadlines !== false
     });
   });
 
@@ -173,7 +179,7 @@ async function runDeadlineCheck() {
   for (const task of activeTasks) {
     const assigneeId = task.assignee_id;
     const profile = profileMap.get(assigneeId);
-    if (!profile) continue;
+    if (!profile || !profile.notify_task_deadlines) continue;
 
     const userTokens = tokenMap.get(assigneeId) || [];
     if (userTokens.length === 0) continue;
@@ -187,21 +193,35 @@ async function runDeadlineCheck() {
     // Ignora tarefas que já venceram no passado
     if (diffHours < 0) continue;
 
-    // Determinar se o usuário deve ser notificado baseado na sua preferência
-    let shouldNotify = false;
+    // Determinar se o usuário deve ser notificado baseado na sua preferência.
+    // O aviso final de 1h dispara sempre, além do aviso na janela configurada
+    // (24h/48h/7d) — cada um com um "threshold" próprio para permitir os dois
+    // avisos sem duplicar notificações dentro da mesma janela.
+    let matchedThreshold: string | null = null;
     const pref = profile.alert_preference;
 
-    if (pref === '1h' && diffHours > 0 && diffHours <= 1) {
-      shouldNotify = true;
-    } else if (pref === '24h' && ((diffHours > 23 && diffHours <= 24) || (diffHours > 0 && diffHours <= 1))) {
-      shouldNotify = true;
-    } else if (pref === '48h' && ((diffHours > 47 && diffHours <= 48) || (diffHours > 0 && diffHours <= 1))) {
-      shouldNotify = true;
-    } else if (pref === '7d' && ((diffHours > 167 && diffHours <= 168) || (diffHours > 0 && diffHours <= 1))) {
-      shouldNotify = true;
+    if (diffHours > 0 && diffHours <= 1) {
+      matchedThreshold = '1h';
+    } else if (pref === '24h' && diffHours > 23 && diffHours <= 24) {
+      matchedThreshold = '24h';
+    } else if (pref === '48h' && diffHours > 47 && diffHours <= 48) {
+      matchedThreshold = '48h';
+    } else if (pref === '7d' && diffHours > 167 && diffHours <= 168) {
+      matchedThreshold = '7d';
     }
 
-    if (shouldNotify) {
+    if (matchedThreshold) {
+      // Evita reenviar o mesmo aviso (mesma task/usuário/threshold) se o job rodar de novo
+      const { data: alreadySent } = await supabase
+        .from('task_deadline_notifications_log')
+        .select('id')
+        .eq('task_id', task.id)
+        .eq('user_id', assigneeId)
+        .eq('threshold', matchedThreshold)
+        .maybeSingle();
+
+      if (alreadySent) continue;
+
       const title = 'Aviso de Prazo de Tarefa ⏰';
       let body = '';
       if (diffHours <= 1) {
@@ -212,7 +232,18 @@ async function runDeadlineCheck() {
         body = `A tarefa "${task.title}" vence em breve (${taskDueDate.toLocaleString('pt-BR')}).`;
       }
 
-      console.log(`[ALERTA] Notificando ${profile.full_name} (${pref}) sobre a tarefa "${task.title}" (vence em ${Math.round(diffHours)}h).`);
+      console.log(`[ALERTA] Notificando ${profile.full_name} (${matchedThreshold}) sobre a tarefa "${task.title}" (vence em ${Math.round(diffHours)}h).`);
+
+      const boardId = (task as any).columns?.board_id ?? (task as any).columns?.boards?.id ?? '';
+      const projectId = (task as any).columns?.boards?.project_id ?? '';
+
+      // Registra o envio antes de disparar para evitar reenvio em execuções concorrentes/atrasadas do job
+      await supabase
+        .from('task_deadline_notifications_log')
+        .upsert(
+          { task_id: task.id, user_id: assigneeId, threshold: matchedThreshold },
+          { onConflict: 'task_id,user_id,threshold', ignoreDuplicates: true }
+        );
 
       // Envia notificação para todos os dispositivos do usuário
       for (const item of userTokens) {
@@ -225,7 +256,9 @@ async function runDeadlineCheck() {
                 body,
               },
               data: {
-                taskId: task.id,
+                taskId: String(task.id),
+                boardId: String(boardId),
+                projectId: String(projectId),
               },
               android: {
                 priority: 'high' as const,

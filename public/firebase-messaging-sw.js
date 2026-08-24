@@ -48,8 +48,15 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // URL padrão a ser aberta (página principal do aplicativo)
-  const urlToOpen = new URL('/', self.location.origin).href;
+  // Monta a URL de destino com base nos dados da notificação (task/board/project),
+  // para que o app abra diretamente no chat/task correspondente.
+  const data = event.notification.data || {};
+  const params = new URLSearchParams();
+  if (data.taskId) params.set('openTask', data.taskId);
+  if (data.boardId) params.set('openBoard', data.boardId);
+  if (data.projectId) params.set('openProject', data.projectId);
+  const query = params.toString();
+  const urlToOpen = new URL(query ? `/?${query}` : '/', self.location.origin).href;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

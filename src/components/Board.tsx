@@ -85,6 +85,8 @@ interface BoardProps {
   filterAssigneeId?: string;
   setFilterAssigneeId?: (id: string) => void;
   boardBackground?: string;
+  deepLinkTaskId?: string;
+  onDeepLinkConsumed?: () => void;
 }
 
 export const Board: React.FC<BoardProps> = ({
@@ -108,6 +110,8 @@ export const Board: React.FC<BoardProps> = ({
   filterAssigneeId = '',
   setFilterAssigneeId = () => {},
   boardBackground = 'zinc',
+  deepLinkTaskId,
+  onDeepLinkConsumed = () => {},
 }) => {
   const { toast, confirm, prompt } = useCustomModal();
   const [columns, setColumns] = useState<Column[]>([]);
@@ -421,6 +425,18 @@ export const Board: React.FC<BoardProps> = ({
   useEffect(() => {
     fetchData();
   }, [activeBoardId]);
+
+  // Abre automaticamente a task alvo de um deep-link (notificação de chat ou de prazo)
+  // assim que ela estiver disponível na lista de tarefas do board ativo.
+  useEffect(() => {
+    if (!deepLinkTaskId) return;
+    const target = tasks.find((t) => t.id === deepLinkTaskId);
+    if (target) {
+      setEditingTask(target);
+      setIsCardModalOpen(true);
+      onDeepLinkConsumed();
+    }
+  }, [tasks, deepLinkTaskId]);
 
   // 2. Efeito para recalcular alertas sempre que as tarefas mudam
   useEffect(() => {
@@ -941,6 +957,9 @@ export const Board: React.FC<BoardProps> = ({
       if (error) throw error;
       if (data) {
         setComments((prev) => [...prev, data as Comment]);
+        supabase.functions
+          .invoke('chat', { body: { commentId: data.id } })
+          .catch((err) => console.error('Falha ao disparar notificação de chat:', err));
       }
     } catch (err: any) {
       toast('Erro ao adicionar comentário: ' + err.message, 'error');

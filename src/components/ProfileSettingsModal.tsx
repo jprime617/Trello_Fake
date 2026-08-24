@@ -32,6 +32,8 @@ interface Profile {
   bio?: string;
   avatar_url?: string;
   alert_preference?: string;
+  notify_chat_messages?: boolean;
+  notify_task_deadlines?: boolean;
 }
 
 interface ProfileSettingsModalProps {
@@ -112,6 +114,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
   // Estados da Aba de Notificações
   const [alertPref, setAlertPref] = useState('48h');
+  const [notifyChatMessages, setNotifyChatMessages] = useState(true);
+  const [notifyTaskDeadlines, setNotifyTaskDeadlines] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [registeringNotification, setRegisteringNotification] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'default'>('default');
@@ -126,6 +130,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       setAvatarUrl(userProfile.avatar_url || '');
       setNewEmail(userProfile.email || '');
       setAlertPref(userProfile.alert_preference || '48h');
+      setNotifyChatMessages(userProfile.notify_chat_messages !== false);
+      setNotifyTaskDeadlines(userProfile.notify_task_deadlines !== false);
 
       getNotificationPermissionStatus().then((status) => {
         setPermissionStatus(status);
@@ -219,6 +225,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
           board_background: boardBg,
           bio: bio.trim() || null,
           alert_preference: alertPref,
+          notify_chat_messages: notifyChatMessages,
+          notify_task_deadlines: notifyTaskDeadlines,
         })
         .eq('id', userId);
 
@@ -580,6 +588,58 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                   <p className="text-[10px] text-zinc-500 font-light leading-relaxed">
                     Escolha com quanta antecedência deseja que o sistema agende os alertas de vencimento para as tarefas atribuídas a você.
                   </p>
+                </div>
+              </div>
+
+              {/* Categorias de Notificação */}
+              <div className="space-y-4 p-5 bg-zinc-900/30 border border-zinc-900 rounded-2xl">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Bell size={12} className="text-zinc-600" />
+                  <span>Categorias de Notificação</span>
+                </span>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5 flex-1">
+                    <span className="text-xs font-bold text-white block">Mensagens de Chat</span>
+                    <span className="text-[10px] text-zinc-450 block font-light leading-relaxed">
+                      Avisa quando alguém comenta em uma task de um board do qual você participa.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyChatMessages((prev) => !prev)}
+                    className={`shrink-0 w-11 h-6 rounded-full transition-all relative cursor-pointer ${
+                      notifyChatMessages ? 'bg-brand-accent' : 'bg-zinc-800'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                        notifyChatMessages ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5 flex-1">
+                    <span className="text-xs font-bold text-white block">Prazos de Tasks</span>
+                    <span className="text-[10px] text-zinc-450 block font-light leading-relaxed">
+                      Avisa quando uma task atribuída a você está perto do vencimento.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyTaskDeadlines((prev) => !prev)}
+                    className={`shrink-0 w-11 h-6 rounded-full transition-all relative cursor-pointer ${
+                      notifyTaskDeadlines ? 'bg-brand-accent' : 'bg-zinc-800'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform ${
+                        notifyTaskDeadlines ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
 
