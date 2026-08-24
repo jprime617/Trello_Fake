@@ -127,6 +127,7 @@ export const Board: React.FC<BoardProps> = ({
   const [isAddingMemberMobile, setIsAddingMemberMobile] = useState(false);
   const [selectedMemberEmailMobile, setSelectedMemberEmailMobile] = useState('');
   const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -626,7 +627,12 @@ export const Board: React.FC<BoardProps> = ({
   }, [projectMembers]);
 
   // 4. Lógica do Drag and Drop
+  const onDragStart = () => {
+    setIsDragging(true);
+  };
+
   const onDragEnd = async (result: DropResult) => {
+    setIsDragging(false);
     const { destination, source, draggableId, type } = result;
 
     if (!destination) return;
@@ -1367,11 +1373,15 @@ export const Board: React.FC<BoardProps> = ({
       )}
 
       {/* Board Columns container */}
-      <main className="flex-1 flex overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 snap-x snap-mandatory scroll-smooth min-h-0">
+      <main
+        className={`flex-1 flex overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 min-h-0 ${
+          isDragging ? '' : 'snap-x snap-mandatory scroll-smooth'
+        }`}
+      >
         {loading ? (
           <BoardSkeleton />
         ) : (
-          <DragDropContext onDragEnd={onDragEnd}>
+          <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
             <Droppable droppableId="all-columns" direction="horizontal" type="column">
               {(provided) => (
                 <div
