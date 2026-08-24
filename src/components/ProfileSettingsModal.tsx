@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCustomModal } from './CustomModals';
+import { useModalA11y } from '../hooks/useModalA11y';
+import { getStoredTheme, setTheme, type ThemeMode } from '../lib/theme';
 import { 
   X, 
   User, 
@@ -93,6 +95,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   userId,
 }) => {
   const { toast } = useCustomModal();
+  const modalRef = useModalA11y(isOpen, onClose);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
   
   // Estados da Aba de Personalização
@@ -100,6 +103,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [emoji, setEmoji] = useState('👤');
   const [themeColor, setThemeColor] = useState('indigo');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getStoredTheme);
   const [boardBg, setBoardBg] = useState('zinc');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -312,11 +316,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in text-zinc-100">
-      <div className="w-full max-w-xl bg-zinc-950/80 border border-zinc-800/80 backdrop-blur-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-zoom-in">
-        
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-settings-modal-title"
+        className="w-full max-w-xl bg-zinc-950/80 border border-zinc-800/80 backdrop-blur-2xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-zoom-in"
+      >
+
         {/* Modal Header */}
         <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40 shrink-0">
-          <h3 className="font-bold text-white text-sm flex items-center gap-2">
+          <h3 id="profile-settings-modal-title" className="font-bold text-white text-sm flex items-center gap-2">
             <Sparkles size={16} className="text-yellow-500 animate-pulse" />
             <span>Configurações do Usuário</span>
           </h3>
@@ -469,6 +479,40 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* 1.5. SEÇÃO DE MODO DE EXIBIÇÃO (CLARO/ESCURO) */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 border-b border-zinc-900 pb-2">
+                  <Palette size={12} className="text-zinc-600" />
+                  <span>Modo de Exibição</span>
+                </span>
+
+                <div className="flex items-center bg-zinc-900 border border-zinc-800/80 rounded-xl p-1 gap-1 max-w-xs">
+                  {([
+                    { id: 'dark' as const, label: 'Escuro' },
+                    { id: 'light' as const, label: 'Claro' },
+                  ]).map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => {
+                        setThemeMode(mode.id);
+                        setTheme(mode.id);
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                        themeMode === mode.id
+                          ? 'bg-brand-accent text-white shadow-md'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-600">
+                  Preferência salva neste dispositivo. Aplica-se apenas à barra lateral e navegação por enquanto.
+                </p>
               </div>
 
               {/* 2. SEÇÃO DE TEMA DO SISTEMA */}

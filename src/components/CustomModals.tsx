@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertTriangle, Info, X, HelpCircle } from 'lucide-react';
+import { trapFocus } from '../hooks/useModalA11y';
 
 interface Toast {
   id: string;
@@ -53,15 +54,24 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [promptValue, setPromptValue] = useState('');
+  const confirmModalRef = useRef<HTMLDivElement>(null);
+  const promptModalRef = useRef<HTMLDivElement>(null);
 
   // 1. Toast Implementation
+  const MAX_TOASTS = 3;
   const toast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => {
+      const next = prev.length >= MAX_TOASTS ? prev.slice(1) : prev;
+      return [...next, { id, message, type }];
+    });
 
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    // Errors require explicit dismissal via the close button; others auto-dismiss.
+    if (type !== 'error') {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 4000);
+    }
   };
 
   // 2. Confirm Implementation
@@ -95,16 +105,18 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  // Listen to keyboard Escape/Enter keypresses on modals
+  // Listen to keyboard Escape/Enter keypresses on modals, plus Tab focus-trapping
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (confirmState.isOpen) {
         if (e.key === 'Escape') confirmState.resolve(false);
         if (e.key === 'Enter') confirmState.resolve(true);
+        if (confirmModalRef.current) trapFocus(confirmModalRef.current, e);
       }
       if (promptState.isOpen) {
         if (e.key === 'Escape') promptState.resolve(null);
         if (e.key === 'Enter') promptState.resolve(promptValue);
+        if (promptModalRef.current) trapFocus(promptModalRef.current, e);
       }
     };
 
@@ -112,12 +124,26 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [confirmState, promptState, promptValue]);
 
+  // Return focus to the trigger element once each dialog closes
+  useEffect(() => {
+    if (!confirmState.isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    confirmModalRef.current?.querySelector<HTMLElement>('button')?.focus();
+    return () => previouslyFocused?.focus();
+  }, [confirmState.isOpen]);
+
+  useEffect(() => {
+    if (!promptState.isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    return () => previouslyFocused?.focus();
+  }, [promptState.isOpen]);
+
   return (
     <ModalContext.Provider value={{ toast, confirm, prompt }}>
       {children}
 
       {/* Global Toast Container */}
-      <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+      <div className="fixed top-4 left-4 right-4 sm:left-auto sm:top-5 sm:right-5 sm:max-w-sm z-[9999] flex flex-col gap-3 w-auto pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -137,6 +163,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             
             <button
               onClick={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
+              aria-label="Fechar notificação"
               className="text-zinc-400 hover:text-white transition-colors p-0.5 rounded-lg hover:bg-white/5"
             >
               <X size={14} />
@@ -148,13 +175,19 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {/* Global Confirm Modal */}
       {confirmState.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-zinc-950 border border-zinc-800/80 max-w-md w-full rounded-2xl p-6 shadow-2xl transform scale-100 transition-all animate-zoom-in">
+          <div
+            ref={confirmModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            className="bg-zinc-950 border border-zinc-800/80 max-w-md w-full rounded-2xl p-6 shadow-2xl transform scale-100 transition-all animate-zoom-in"
+          >
             <div className="flex gap-4 items-start mb-5">
               <div className="p-3 bg-brand-accent/10 text-brand-accent rounded-xl shrink-0">
                 <HelpCircle size={22} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white mb-1">Confirmação necessária</h3>
+                <h3 id="confirm-modal-title" className="text-sm font-semibold text-white mb-1">Confirmação necessária</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed">{confirmState.message}</p>
               </div>
             </div>
@@ -180,8 +213,14 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {/* Global Prompt Modal */}
       {promptState.isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-zinc-950 border border-zinc-800/80 max-w-md w-full rounded-2xl p-6 shadow-2xl transform scale-100 transition-all animate-zoom-in">
-            <h3 className="text-sm font-semibold text-white mb-1">{promptState.title}</h3>
+          <div
+            ref={promptModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prompt-modal-title"
+            className="bg-zinc-950 border border-zinc-800/80 max-w-md w-full rounded-2xl p-6 shadow-2xl transform scale-100 transition-all animate-zoom-in"
+          >
+            <h3 id="prompt-modal-title" className="text-sm font-semibold text-white mb-1">{promptState.title}</h3>
             {promptState.description && (
               <p className="text-xs text-zinc-400 mb-4 leading-relaxed">{promptState.description}</p>
             )}

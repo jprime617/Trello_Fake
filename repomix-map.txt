@@ -1,0 +1,1409 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: **/*.py, **/*.js, **/*.ts, **/*.html, **/*.css
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+public/
+  firebase-messaging-sw.js
+scripts/
+  alter-db.ts
+  check-deadlines.ts
+  debug-db.ts
+src/
+  lib/
+    pushNotifications.ts
+    supabase.ts
+  App.css
+  index.css
+supabase/
+  functions/
+    chat/
+      index.ts
+templates/
+  advanced_agent_core.py
+eslint.config.js
+index.html
+tasks.py
+vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="templates/advanced_agent_core.py">
+"""Núcleo de agente com ferramentas registráveis, circuit breaker e logs por etapa.
+
+Referência viva de `.claude/rules/python-data-rules.md`:
+- Habilidades desacopladas em tools registráveis.
+- Pipeline com try/except por etapa (circuit breaker) que loga EXATAMENTE onde falhou.
+- Telemetria estruturada (nível, timestamp, etapa) em vez de `print()` solto.
+
+Sem dependência externa: roda com `python tasks.py run-pipeline` (ou `make run-pipeline`).
+O ponto de vetorização com Pandas está marcado abaixo.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-7s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("agent")
+
+Tool = Callable[[Any], Any]
+
+
+class PipelineError(RuntimeError):
+    """Falha de etapa já contextualizada (qual step, qual tool)."""
+
+
+@dataclass
+class Step:
+    """Uma etapa do pipeline: aplica a tool `tool` à saída da etapa anterior."""
+
+    tool: str
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        self.label = self.label or self.tool
+
+
+@dataclass
+class AdvancedAgentCore:
+    name: str
+    max_retries: int = 3
+    tools: dict[str, Tool] = field(default_factory=dict)
+
+    def register_tool(self, name: str, func: Tool) -> "AdvancedAgentCore":
+        """Acopla uma habilidade. Retorna self para encadear registros."""
+        if name in self.tools:
+            raise ValueError(f"Tool '{name}' já registrada em [{self.name}].")
+        self.tools[name] = func
+        log.info("[%s] tool '%s' acoplada.", self.name, name)
+        return self
+
+    def _run_step(self, step: Step, payload: Any) -> Any:
+        """Executa uma etapa com retry + circuit breaker. Loga onde falha."""
+        tool = self.tools.get(step.tool)
+        if tool is None:
+            raise PipelineError(f"tool '{step.tool}' não registrada (etapa '{step.label}').")
+
+        last_exc: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                result = tool(payload)
+                log.info("[%s] etapa '%s' OK (tentativa %d).", self.name, step.label, attempt)
+                return result
+            except Exception as exc:  # noqa: BLE001 - fronteira do circuit breaker
+                last_exc = exc
+                log.warning(
+                    "[%s] etapa '%s' falhou (tentativa %d/%d): %s",
+                    self.name, step.label, attempt, self.max_retries, exc,
+                )
+        # Circuit breaker: para o fluxo apontando exatamente a etapa que quebrou.
+        raise PipelineError(
+            f"etapa '{step.label}' (tool '{step.tool}') falhou após {self.max_retries} tentativas"
+        ) from last_exc
+
+    def execute_pipeline(self, steps: list[Step], initial_input: Any) -> dict[str, Any]:
+        log.info("[%s] iniciando pipeline com %d etapa(s).", self.name, len(steps))
+        payload = initial_input
+        for i, step in enumerate(steps, start=1):
+            log.info("[%s] > etapa %d/%d: %s", self.name, i, len(steps), step.label)
+            try:
+                payload = self._run_step(step, payload)
+            except PipelineError as exc:
+                log.error("[%s] pipeline abortado na etapa %d/%d: %s", self.name, i, len(steps), exc)
+                return {"status": "FAILED", "failed_step": i, "error": str(exc)}
+        log.info("[%s] pipeline concluído.", self.name)
+        return {"status": "SUCCESS", "data": payload}
+
+
+# --- Exemplo executável ------------------------------------------------------
+def _load(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not raw:
+        raise ValueError("entrada vazia")
+    return raw
+
+
+def _transform(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Vetorização: com Pandas seria `df["total"] = df["qtd"] * df["preco"]`.
+    # Aqui, sem dependência, mantém-se a mesma ideia de operação em lote.
+    return [{**r, "total": r["qtd"] * r["preco"]} for r in rows]
+
+
+def _summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"linhas": len(rows), "faturamento": sum(r["total"] for r in rows)}
+
+
+if __name__ == "__main__":
+    agent = (
+        AdvancedAgentCore(name="DataPipelineAgent")
+        .register_tool("load", _load)
+        .register_tool("transform", _transform)
+        .register_tool("summarize", _summarize)
+    )
+    pipeline = [Step("load"), Step("transform"), Step("summarize", label="agregar_faturamento")]
+    sample = [{"qtd": 3, "preco": 10.0}, {"qtd": 1, "preco": 25.0}]
+    print(json.dumps(agent.execute_pipeline(pipeline, sample), indent=2, ensure_ascii=False))
+</file>
+
+<file path="tasks.py">
+#!/usr/bin/env python3
+"""Runner de tarefas cross-platform (Windows/PowerShell, WSL, macOS, Linux).
+
+Fonte ÚNICA da lógica dos alvos padronizados. `Makefile` e `tasks.ps1` são
+wrappers finos que chamam este arquivo. Uso:
+
+    python tasks.py <alvo>
+
+Alvos: setup | clean | test | run-pipeline | lint | format | map | help
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+PY = sys.executable  # mesmo interpretador, evita depender de "python" no PATH
+
+
+def _run(cmd: list[str]) -> int:
+    print(f"$ {' '.join(cmd)}")
+    return subprocess.run(cmd, cwd=ROOT).returncode
+
+
+def _has(exe: str) -> bool:
+    return shutil.which(exe) is not None
+
+
+def _repomix_cmd() -> list[str] | None:
+    if _has("repomix"):
+        return ["repomix"]
+    if _has("npx"):
+        return ["npx", "--yes", "repomix"]
+    return None
+
+
+# --- alvos -------------------------------------------------------------------
+def setup() -> int:
+    for d in ("src/utils", "src/agents", "tests"):
+        (ROOT / d).mkdir(parents=True, exist_ok=True)
+    print("Diretorios garantidos: src/utils, src/agents, tests")
+    return _map()
+
+
+def clean() -> int:
+    removed = 0
+    for pyc in ROOT.rglob("__pycache__"):
+        if ".git" not in pyc.parts:
+            shutil.rmtree(pyc, ignore_errors=True)
+            removed += 1
+    for name in (".pytest_cache", ".ruff_cache"):
+        p = ROOT / name
+        if p.exists():
+            shutil.rmtree(p, ignore_errors=True)
+            removed += 1
+    for name in ("repomix-map.txt", "repomix-output.txt"):
+        p = ROOT / name
+        if p.exists():
+            p.unlink()
+            removed += 1
+    print(f"Limpeza concluida ({removed} item(ns) removido(s)).")
+    return 0
+
+
+def test() -> int:
+    tests_dir = ROOT / "tests"
+    has_tests = tests_dir.is_dir() and (
+        any(tests_dir.rglob("test_*.py")) or any(tests_dir.rglob("*_test.py"))
+    )
+    if not has_tests:
+        print("Nenhum teste encontrado em tests/.")
+        return 0
+    try:
+        import pytest  # noqa: F401
+    except ImportError:
+        print('pytest nao instalado. Rode: pip install -e ".[dev]"')
+        return 1
+    return _run([PY, "-m", "pytest", "tests/"])
+
+
+def run_pipeline() -> int:
+    print("Executando pipeline de exemplo...")
+    return _run([PY, "templates/advanced_agent_core.py"])
+
+
+def lint() -> int:
+    if not _has("ruff"):
+        print('ruff nao instalado. Rode: pip install -e ".[dev]"')
+        return 1
+    return _run(["ruff", "check", "."])
+
+
+def format_() -> int:
+    if not _has("ruff"):
+        print('ruff nao instalado. Rode: pip install -e ".[dev]"')
+        return 1
+    rc = _run(["ruff", "check", ".", "--fix"])
+    return _run(["ruff", "format", "."]) or rc
+
+
+def _map() -> int:
+    cmd = _repomix_cmd()
+    if cmd is None:
+        print("repomix/npx nao encontrado; pulei o mapa. Instale Node.js + repomix.")
+        return 0
+    print("Gerando mapa de arquitetura (repomix-map.txt)...")
+    return _run([*cmd, "--output", "repomix-map.txt",
+                 "--include", "**/*.py,**/*.js,**/*.ts,**/*.html,**/*.css"])
+
+
+def help_() -> int:
+    print(__doc__)
+    return 0
+
+
+TARGETS = {
+    "setup": setup, "clean": clean, "test": test, "run-pipeline": run_pipeline,
+    "lint": lint, "format": format_, "map": _map, "help": help_,
+}
+
+
+def main(argv: list[str]) -> int:
+    target = argv[0] if argv else "help"
+    fn = TARGETS.get(target)
+    if fn is None:
+        print(f"Alvo desconhecido: {target}\nDisponiveis: {', '.join(TARGETS)}")
+        return 2
+    return fn() or 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
+</file>
+
+<file path="scripts/alter-db.ts">
+import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+const loadEnv = () => {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    envConfig.split('\n').forEach(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        let value = match[2] || '';
+        if (value.startsWith('"') && value.endsWith('"')) value = value.substring(1, value.length - 1);
+        process.env[match[1]] = value;
+      }
+    });
+  }
+};
+loadEnv();
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+async function migrate() {
+  console.log('Iniciando migração de banco...');
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/exec_sql`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseKey,
+      'Authorization': `Bearer ${supabaseKey}`
+    },
+    // Nota: Como não temos certeza se rpc/exec_sql está ativado, vamos criar as queries
+    // ou rodar via API do node-postgres se tivéssemos a string de conexão.
+  });
+}
+</file>
+
+<file path="scripts/debug-db.ts">
+import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+const loadEnv = () => {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    envConfig.split('\n').forEach(line => {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        let value = match[2] || '';
+        if (value.startsWith('"') && value.endsWith('"')) value = value.substring(1, value.length - 1);
+        process.env[match[1]] = value;
+      }
+    });
+  }
+};
+loadEnv();
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+);
+
+async function checkTasks() {
+  const { data: tasks, error } = await supabase.from('tasks').select('id, title, due_date, assignee_id');
+  if (error) console.error(error);
+  else console.log("TODAS AS TAREFAS NO BANCO:", JSON.stringify(tasks, null, 2));
+
+  const { data: tokens } = await supabase.from('user_push_tokens').select('*');
+  console.log("TOKENS DE NOTIFICAÇÃO SALVOS:", JSON.stringify(tokens, null, 2));
+}
+checkTasks();
+</file>
+
+<file path="src/lib/supabase.ts">
+import { createClient } from '@supabase/supabase-js';
+
+// Obter as variáveis de ambiente fornecidas pelo Vite
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Aviso: As variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não foram encontradas. Siga as instruções do arquivo .env.example para configurá-las.'
+  );
+}
+
+// Instanciar o cliente Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+</file>
+
+<file path="src/App.css">
+/* Esvaziado para evitar conflitos de estilo com o index.css do Tailwind */
+</file>
+
+<file path="supabase/functions/chat/index.ts">
+// ==========================================================
+// EDGE FUNCTION: NOTIFICAÇÃO PUSH DE NOVA MENSAGEM NO CHAT DA TASK
+// Disparada pelo client (Board.tsx) logo após inserir um comentário.
+// Reenvia notificações para os participantes do board, exceto o remetente.
+// ==========================================================
+
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import admin from 'npm:firebase-admin@13';
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const firebaseServiceAccount = Deno.env.get('FIREBASE_SERVICE_ACCOUNT');
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+if (!admin.apps.length && firebaseServiceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(firebaseServiceAccount)),
+  });
+}
+
+function truncate(text: string, max = 80) {
+  const clean = text.trim();
+  return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+}
+
+Deno.serve(async (req) => {
+  try {
+    const { commentId } = await req.json();
+    if (!commentId) {
+      return new Response(JSON.stringify({ error: 'commentId é obrigatório' }), { status: 400 });
+    }
+
+    if (!admin.apps.length) {
+      console.warn('FIREBASE_SERVICE_ACCOUNT ausente — notificação de chat ignorada em modo simulação.');
+      return new Response(JSON.stringify({ ok: true, simulated: true }), { status: 200 });
+    }
+
+    // 1. Carrega o comentário + remetente
+    const { data: comment, error: commentError } = await supabase
+      .from('comments')
+      .select('id, content, user_id, task_id, profiles(full_name)')
+      .eq('id', commentId)
+      .single();
+
+    if (commentError || !comment) {
+      console.error('Comentário não encontrado:', commentError?.message);
+      return new Response(JSON.stringify({ error: 'Comentário não encontrado' }), { status: 404 });
+    }
+
+    // 2. Carrega a cadeia task -> coluna -> board -> projeto
+    const { data: task, error: taskError } = await supabase
+      .from('tasks')
+      .select('id, title, column_id, columns(board_id, boards(id, title, project_id))')
+      .eq('id', comment.task_id)
+      .single();
+
+    if (taskError || !task) {
+      console.error('Task do comentário não encontrada:', taskError?.message);
+      return new Response(JSON.stringify({ error: 'Task não encontrada' }), { status: 404 });
+    }
+
+    const board = (task as any).columns?.boards;
+    const boardId: string | undefined = board?.id;
+    const projectId: string | undefined = board?.project_id;
+
+    if (!projectId) {
+      console.error('Projeto não encontrado para a task', task.id);
+      return new Response(JSON.stringify({ error: 'Projeto não encontrado' }), { status: 404 });
+    }
+
+    // 3. Resolve participantes do board (dono do projeto + membros), exceto o remetente
+    const { data: project } = await supabase
+      .from('projects')
+      .select('created_by')
+      .eq('id', projectId)
+      .single();
+
+    const { data: members } = await supabase
+      .from('project_members')
+      .select('user_id')
+      .eq('project_id', projectId);
+
+    const recipientIds = new Set<string>();
+    if (project?.created_by) recipientIds.add(project.created_by);
+    (members || []).forEach((m) => recipientIds.add(m.user_id));
+    recipientIds.delete(comment.user_id);
+
+    if (recipientIds.size === 0) {
+      return new Response(JSON.stringify({ ok: true, notified: 0 }), { status: 200 });
+    }
+
+    // 4. Filtra quem desativou notificações de chat
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, notify_chat_messages')
+      .in('id', Array.from(recipientIds));
+
+    const enabledRecipientIds = (profiles || [])
+      .filter((p) => p.notify_chat_messages !== false)
+      .map((p) => p.id);
+
+    if (enabledRecipientIds.length === 0) {
+      return new Response(JSON.stringify({ ok: true, notified: 0 }), { status: 200 });
+    }
+
+    // 5. Busca tokens dos destinatários habilitados
+    const { data: tokens } = await supabase
+      .from('user_push_tokens')
+      .select('token, device_type, user_id')
+      .in('user_id', enabledRecipientIds);
+
+    if (!tokens || tokens.length === 0) {
+      return new Response(JSON.stringify({ ok: true, notified: 0 }), { status: 200 });
+    }
+
+    const senderName = (comment as any).profiles?.full_name || 'Alguém';
+    const title = senderName;
+    const body = truncate(comment.content);
+
+    let notified = 0;
+    for (const item of tokens) {
+      try {
+        await admin.messaging().send({
+          token: item.token,
+          notification: { title, body },
+          data: {
+            type: 'chat',
+            taskId: String(task.id),
+            boardId: String(boardId ?? ''),
+            projectId: String(projectId),
+          },
+          android: {
+            priority: 'high',
+            notification: { channelId: 'chat_messages', sound: 'default' },
+          },
+          webpush: {
+            headers: { Urgency: 'high' },
+            notification: { icon: '/logo.png', badge: '/logo.png' },
+          },
+        });
+        notified++;
+      } catch (err: any) {
+        console.error(`Erro ao enviar notificação de chat para token (${item.device_type}):`, err.message);
+        if (
+          err.code === 'messaging/invalid-registration-token' ||
+          err.code === 'messaging/registration-token-not-registered'
+        ) {
+          await supabase.from('user_push_tokens').delete().eq('token', item.token);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, notified }), { status: 200 });
+  } catch (err: any) {
+    console.error('Erro crítico na function chat:', err.message);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  }
+});
+</file>
+
+<file path="eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+])
+</file>
+
+<file path="vite.config.ts">
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+})
+</file>
+
+<file path="public/firebase-messaging-sw.js">
+// ==========================================================
+// SERVICE WORKER PARA NOTIFICAÇÕES PUSH EM SEGUNDO PLANO
+// ==========================================================
+
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
+
+// Notificações em segundo plano nativas do FCM usam a API 'push' do navegador.
+// Este Service Worker intercepta o push e gera a notificação na barra de status do Android ou desktop.
+
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const payload = event.data.json();
+    console.log('[Service Worker] Notificação push recebida em segundo plano:', payload);
+
+    // Se a notificação não foi gerada automaticamente pelo navegador (mensagens data-only)
+    if (payload.data && !payload.notification) {
+      const title = payload.data.title || 'Alerta de Prazo - Kanban';
+      const options = {
+        body: payload.data.body || 'Você possui uma tarefa pendente para expirar em breve.',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        data: payload.data,
+        vibrate: [200, 100, 200],
+        tag: 'deadline-alert', // Agrupa notificações repetidas
+        actions: [
+          { action: 'open', title: 'Abrir Kanban' }
+        ]
+      };
+      event.waitUntil(self.registration.showNotification(title, options));
+    }
+  } catch (err) {
+    console.error('[Service Worker] Erro ao analisar dados da notificação push:', err);
+  }
+});
+
+// Ação disparada quando o usuário clica na notificação
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  // Monta a URL de destino com base nos dados da notificação (task/board/project),
+  // para que o app abra diretamente no chat/task correspondente.
+  const data = event.notification.data || {};
+  const params = new URLSearchParams();
+  if (data.taskId) params.set('openTask', data.taskId);
+  if (data.boardId) params.set('openBoard', data.boardId);
+  if (data.projectId) params.set('openProject', data.projectId);
+  const query = params.toString();
+  const urlToOpen = new URL(query ? `/?${query}` : '/', self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Se o app já estiver aberto em alguma aba, foca nele
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Caso contrário, abre uma nova janela
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>trello-fake</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
+</file>
+
+<file path="src/index.css">
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', sans-serif;
+  
+  /* Custom brand colors for our premium Dark/Linear-style theme */
+  --color-brand-bg: #09090b;
+  --color-brand-card: #18181b;
+  --color-brand-border: #27272a;
+  --color-brand-accent: #6366f1; /* Indigo */
+  --color-brand-accent-hover: #4f46e5;
+}
+
+/* Global Reset & Base styling */
+html, body {
+  background-color: var(--color-brand-bg);
+  color: #f4f4f5;
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom premium scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Custom utility for glassmorphism */
+.glass-panel {
+  background: rgba(24, 24, 27, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(39, 39, 42, 0.8);
+}
+
+/* Hide scrollbar for columns but allow sliding */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Touch responsiveness optimization */
+button, a, [role="button"] {
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+/* Smooth drag ghost styling overlay */
+.dragging-card {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  transform: rotate(2deg) scale(1.02);
+  border-color: #6366f1 !important;
+  background: rgba(39, 39, 42, 0.9) !important;
+}
+
+.dragging-column {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  background: rgba(24, 24, 27, 0.9) !important;
+}
+
+/* Custom premium animated transitions */
+@keyframes slide-in {
+  from {
+    transform: translateY(1rem) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-zoom-in {
+  animation: zoom-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+</file>
+
+<file path="scripts/check-deadlines.ts">
+import fs from 'fs';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+import admin from 'firebase-admin';
+
+// 1. Carregar variáveis de ambiente do arquivo .env
+const loadEnv = () => {
+  try {
+    const envPath = path.resolve(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      const envConfig = fs.readFileSync(envPath, 'utf8');
+      envConfig.split('\n').forEach(line => {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match) {
+          const key = match[1];
+          let value = match[2] || '';
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.substring(1, value.length - 1);
+          } else if (value.startsWith("'") && value.endsWith("'")) {
+            value = value.substring(1, value.length - 1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
+        }
+      });
+      console.log('Variáveis de ambiente do arquivo .env carregadas com sucesso.');
+    }
+  } catch (e) {
+    console.warn('Não foi possível ler o arquivo .env:', e);
+  }
+};
+
+loadEnv();
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Erro: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY/SUPABASE_SERVICE_ROLE_KEY são necessários no .env.');
+  process.exit(1);
+}
+
+// Inicializa cliente Supabase
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Inicializa Firebase Admin SDK
+let firebaseAdminReady = false;
+const firebaseServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+if (firebaseServiceAccount) {
+  try {
+    const serviceAccount = JSON.parse(firebaseServiceAccount);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    firebaseAdminReady = true;
+    console.log('Firebase Admin SDK inicializado via FIREBASE_SERVICE_ACCOUNT.');
+  } catch (e: any) {
+    console.error('Erro ao fazer parse de FIREBASE_SERVICE_ACCOUNT JSON:', e.message);
+  }
+} else {
+  // Procura por arquivo serviceAccountKey.json padrão no diretório scripts
+  const keyPath = path.resolve(process.cwd(), 'scripts', 'serviceAccountKey.json');
+  if (fs.existsSync(keyPath)) {
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert(keyPath)
+      });
+      firebaseAdminReady = true;
+      console.log('Firebase Admin SDK inicializado usando scripts/serviceAccountKey.json.');
+    } catch (e: any) {
+      console.error('Erro ao ler scripts/serviceAccountKey.json:', e.message);
+    }
+  } else {
+    console.warn('AVISO: Credenciais do Firebase Admin não encontradas.');
+    console.warn('O script rodará em MODO SIMULAÇÃO (DRY RUN). Nenhuma notificação real será enviada ao FCM.');
+  }
+}
+
+async function runDeadlineCheck() {
+  console.log('--- Iniciando Verificação de Prazos ---');
+  
+  // 1. Obter a data atual do servidor
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  console.log(`Data base de comparação (hoje): ${today.toLocaleDateString()} (00:00:00)`);
+
+  // 2. Buscar todas as tarefas que têm prazo (due_date) e estão atribuídas a alguém
+  const { data: tasks, error: tasksError } = await supabase
+    .from('tasks')
+    .select(`
+      id,
+      title,
+      due_date,
+      assignee_id,
+      columns (
+        title,
+        board_id,
+        boards (
+          id,
+          project_id
+        )
+      )
+    `)
+    .not('due_date', 'is', null)
+    .not('assignee_id', 'is', null);
+
+  if (tasksError) {
+    console.error('Erro ao buscar tarefas do banco:', tasksError.message);
+    return;
+  }
+
+  if (!tasks || tasks.length === 0) {
+    console.log('Nenhuma tarefa com prazo pendente encontrada.');
+    return;
+  }
+
+  console.log(`Encontradas ${tasks.length} tarefas com prazo configurado.`);
+
+  // Filtra colunas concluídas para evitar spam de tarefas finalizadas
+  const completedColumnNames = ['done', 'concluido', 'concluído', 'pronto', 'finished', 'arquivado', 'archive'];
+  const activeTasks = tasks.filter((task: any) => {
+    const colTitle = task.columns?.title?.toLowerCase() || '';
+    const isCompleted = completedColumnNames.some(name => colTitle.includes(name));
+    return !isCompleted;
+  });
+
+  console.log(`${activeTasks.length} tarefas ativas após filtrar colunas concluídas.`);
+
+  // 3. Buscar perfis dos usuários que possuem alert_preference configurado
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, full_name, alert_preference, notify_task_deadlines')
+    .not('alert_preference', 'is', null);
+
+  if (profilesError) {
+    console.error('Erro ao buscar perfis dos usuários:', profilesError.message);
+    return;
+  }
+
+  // Criar um mapa rápido de perfis para consulta por id
+  const profileMap = new Map<string, { full_name: string; alert_preference: string; notify_task_deadlines: boolean }>();
+  profiles.forEach(p => {
+    profileMap.set(p.id, {
+      full_name: p.full_name,
+      alert_preference: p.alert_preference || '48h',
+      notify_task_deadlines: p.notify_task_deadlines !== false
+    });
+  });
+
+  // 4. Buscar os tokens push salvos para os usuários
+  const { data: tokens, error: tokensError } = await supabase
+    .from('user_push_tokens')
+    .select('user_id, token, device_type');
+
+  if (tokensError) {
+    console.error('Erro ao buscar tokens push do banco:', tokensError.message);
+    return;
+  }
+
+  // Criar um mapa de tokens agrupados por user_id
+  const tokenMap = new Map<string, Array<{ token: string; device_type: string }>>();
+  tokens.forEach(t => {
+    if (!tokenMap.has(t.user_id)) {
+      tokenMap.set(t.user_id, []);
+    }
+    tokenMap.get(t.user_id)!.push({
+      token: t.token,
+      device_type: t.device_type
+    });
+  });
+
+  console.log(`Carregados ${tokens.length} tokens FCM válidos.`);
+
+  let notificationsSent = 0;
+
+  // 5. Analisar as tarefas e disparar alertas caso se enquadrem na preferência
+  for (const task of activeTasks) {
+    const assigneeId = task.assignee_id;
+    const profile = profileMap.get(assigneeId);
+    if (!profile || !profile.notify_task_deadlines) continue;
+
+    const userTokens = tokenMap.get(assigneeId) || [];
+    if (userTokens.length === 0) continue;
+
+    // Calcular horas exatas até o vencimento
+    const taskDueDate = new Date(task.due_date);
+    const now = new Date();
+    const diffTime = taskDueDate.getTime() - now.getTime();
+    const diffHours = diffTime / (1000 * 60 * 60);
+
+    // Ignora tarefas que já venceram no passado
+    if (diffHours < 0) continue;
+
+    // Determinar se o usuário deve ser notificado baseado na sua preferência.
+    // O aviso final de 1h dispara sempre, além do aviso na janela configurada
+    // (24h/48h/7d) — cada um com um "threshold" próprio para permitir os dois
+    // avisos sem duplicar notificações dentro da mesma janela.
+    let matchedThreshold: string | null = null;
+    const pref = profile.alert_preference;
+
+    if (diffHours > 0 && diffHours <= 1) {
+      matchedThreshold = '1h';
+    } else if (pref === '24h' && diffHours > 23 && diffHours <= 24) {
+      matchedThreshold = '24h';
+    } else if (pref === '48h' && diffHours > 47 && diffHours <= 48) {
+      matchedThreshold = '48h';
+    } else if (pref === '7d' && diffHours > 167 && diffHours <= 168) {
+      matchedThreshold = '7d';
+    }
+
+    if (matchedThreshold) {
+      // Evita reenviar o mesmo aviso (mesma task/usuário/threshold) se o job rodar de novo
+      const { data: alreadySent } = await supabase
+        .from('task_deadline_notifications_log')
+        .select('id')
+        .eq('task_id', task.id)
+        .eq('user_id', assigneeId)
+        .eq('threshold', matchedThreshold)
+        .maybeSingle();
+
+      if (alreadySent) continue;
+
+      const title = 'Aviso de Prazo de Tarefa ⏰';
+      let body = '';
+      if (diffHours <= 1) {
+        body = `A tarefa "${task.title}" vence em menos de 1 hora!`;
+      } else if (diffHours <= 24) {
+        body = `A tarefa "${task.title}" vence nas próximas 24 horas!`;
+      } else {
+        body = `A tarefa "${task.title}" vence em breve (${taskDueDate.toLocaleString('pt-BR')}).`;
+      }
+
+      console.log(`[ALERTA] Notificando ${profile.full_name} (${matchedThreshold}) sobre a tarefa "${task.title}" (vence em ${Math.round(diffHours)}h).`);
+
+      const boardId = (task as any).columns?.board_id ?? (task as any).columns?.boards?.id ?? '';
+      const projectId = (task as any).columns?.boards?.project_id ?? '';
+
+      // Registra o envio antes de disparar para evitar reenvio em execuções concorrentes/atrasadas do job
+      await supabase
+        .from('task_deadline_notifications_log')
+        .upsert(
+          { task_id: task.id, user_id: assigneeId, threshold: matchedThreshold },
+          { onConflict: 'task_id,user_id,threshold', ignoreDuplicates: true }
+        );
+
+      // Envia notificação para todos os dispositivos do usuário
+      for (const item of userTokens) {
+        try {
+          if (firebaseAdminReady) {
+            const message = {
+              token: item.token,
+              notification: {
+                title,
+                body,
+              },
+              data: {
+                taskId: String(task.id),
+                boardId: String(boardId),
+                projectId: String(projectId),
+              },
+              android: {
+                priority: 'high' as const,
+                notification: {
+                  channelId: 'task_deadlines',
+                  sound: 'default',
+                  clickAction: 'open_app',
+                }
+              },
+              webpush: {
+                headers: {
+                  Urgency: 'high',
+                },
+                notification: {
+                  icon: '/logo.png',
+                  badge: '/logo.png',
+                  requireInteraction: true,
+                }
+              }
+            };
+
+            await admin.messaging().send(message);
+            console.log(`  -> Notificação enviada com sucesso para o token do tipo: ${item.device_type}`);
+          } else {
+            console.log(`  -> [SIMULAÇÃO] FCM Send: Token (${item.device_type}) "${item.token.substring(0, 10)}..." | Title: "${title}" | Body: "${body}"`);
+          }
+          notificationsSent++;
+        } catch (fcmError: any) {
+          console.error(`  -> Erro ao enviar notificação para token (${item.device_type}):`, fcmError.message);
+          
+          if (
+            fcmError.code === 'messaging/invalid-registration-token' ||
+            fcmError.code === 'messaging/registration-token-not-registered'
+          ) {
+            console.log(`  -> Removendo token inválido do banco: ${item.token.substring(0, 15)}...`);
+            await supabase
+              .from('user_push_tokens')
+              .delete()
+              .eq('token', item.token);
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`--- Verificação Concluída. ${notificationsSent} notificações processadas. ---`);
+}
+
+runDeadlineCheck().catch(err => {
+  console.error('Erro crítico no script de prazos:', err);
+  process.exit(1);
+});
+</file>
+
+<file path="src/lib/pushNotifications.ts">
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getMessaging, getToken } from 'firebase/messaging';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { supabase } from './supabase';
+
+// Configuração do Firebase carregada via variáveis de ambiente
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+// Inicializa o Firebase apenas se as credenciais existirem e estiver no ambiente web
+const initFirebaseWeb = () => {
+  if (!firebaseConfig.apiKey || !firebaseConfig.messagingSenderId) {
+    console.warn('Configurações do Firebase ausentes no arquivo .env. As notificações Web podem não funcionar.');
+    return null;
+  }
+  return getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+};
+
+/**
+ * Salva o token de notificação do usuário no Supabase
+ */
+export async function savePushToken(userId: string, token: string, deviceType: 'web' | 'android' | 'ios') {
+  try {
+    const { error } = await supabase
+      .from('user_push_tokens')
+      .upsert(
+        { 
+          user_id: userId, 
+          token, 
+          device_type: deviceType,
+          created_at: new Date().toISOString()
+        },
+        { onConflict: 'token' }
+      );
+
+    if (error) throw error;
+    console.log('Token de notificação push salvo com sucesso!');
+    localStorage.setItem('fcm_token', token);
+  } catch (error) {
+    console.error('Erro ao salvar token de notificação push no Supabase:', error);
+    throw error;
+  }
+}
+
+/**
+ * Remove o token de notificação do usuário do Supabase
+ */
+export async function removePushToken(token: string) {
+  try {
+    const { error } = await supabase
+      .from('user_push_tokens')
+      .delete()
+      .eq('token', token);
+
+    if (error) throw error;
+    localStorage.removeItem('fcm_token');
+    console.log('Token de notificação push removido com sucesso!');
+  } catch (error) {
+    console.error('Erro ao remover token de notificação push no Supabase:', error);
+  }
+}
+
+/**
+ * Registra notificações no dispositivo atual e solicita permissões
+ */
+/**
+ * Cria os canais de notificação Android referenciados pelo backend
+ * (check-deadlines.ts e a edge function chat). No Android 8+ (API 26+),
+ * uma notificação enviada para um channelId que o app nunca criou é
+ * descartada silenciosamente pelo sistema — por isso isso precisa
+ * rodar antes de qualquer push chegar, não só na primeira vez.
+ */
+export async function ensureNotificationChannels() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await PushNotifications.createChannel({
+      id: 'chat_messages',
+      name: 'Mensagens de Chat',
+      description: 'Avisos de novas mensagens nos chats das tasks',
+      importance: 4,
+      visibility: 1,
+    });
+    await PushNotifications.createChannel({
+      id: 'task_deadlines',
+      name: 'Prazos de Tasks',
+      description: 'Avisos de vencimento de tasks atribuídas a você',
+      importance: 4,
+      visibility: 1,
+    });
+  } catch (err) {
+    console.error('Erro ao criar canais de notificação Android:', err);
+  }
+}
+
+export async function registerPushNotifications(userId: string): Promise<string> {
+  const isNative = Capacitor.isNativePlatform();
+
+  if (isNative) {
+    // -------------------------------------------------------------
+    // FLUXO DO APLICATIVO NATIVO (Capacitor/Android APK)
+    // -------------------------------------------------------------
+    await ensureNotificationChannels();
+
+    return new Promise((resolve, reject) => {
+      // 1. Solicita permissão para receber notificações no Android/iOS
+      PushNotifications.requestPermissions().then((permission) => {
+        if (permission.receive === 'granted') {
+          // 2. Registra o dispositivo no FCM
+          PushNotifications.register();
+        } else {
+          reject(new Error('Permissão de notificação negada no dispositivo móvel.'));
+        }
+      });
+
+      // 3. Listener disparado quando o registro no FCM é bem-sucedido
+      PushNotifications.addListener('registration', async (token) => {
+        const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
+        try {
+          await savePushToken(userId, token.value, platform);
+          resolve(token.value);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      // 4. Listener disparado caso haja erro no registro nativo
+      PushNotifications.addListener('registrationError', (error) => {
+        reject(new Error(`Erro de registro nativo FCM: ${error.error}`));
+      });
+    });
+  } else {
+    // -------------------------------------------------------------
+    // FLUXO DO NAVEGADOR WEB (PWA)
+    // -------------------------------------------------------------
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error('Este navegador não suporta notificações push.');
+    }
+
+    const app = initFirebaseWeb();
+    if (!app) {
+      throw new Error('Configuração de credenciais Firebase ausente.');
+    }
+
+    const messaging = getMessaging(app);
+
+    // Solicita permissão do navegador
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      throw new Error('Permissão de notificação negada pelo navegador.');
+    }
+
+    // Registra o service worker especificamente para as notificações
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+
+    // Obtém o token FCM Web
+    const token = await getToken(messaging, {
+      serviceWorkerRegistration: registration,
+      vapidKey: VAPID_KEY,
+    });
+
+    if (token) {
+      await savePushToken(userId, token, 'web');
+      return token;
+    } else {
+      throw new Error('Não foi possível recuperar o token de registro FCM Web.');
+    }
+  }
+}
+
+/**
+ * Desativa notificações no dispositivo atual
+ */
+export async function unregisterPushNotifications() {
+  const cachedToken = localStorage.getItem('fcm_token');
+  if (cachedToken) {
+    await removePushToken(cachedToken);
+  }
+}
+
+/**
+ * Registra o listener de toque em notificações no app nativo (Android/iOS).
+ * No app empacotado via Capacitor, o toque na notificação não navega por URL
+ * (o WebView carrega uma URL fixa) — ele dispara este evento JS, inclusive
+ * em cold start (o Capacitor entrega o toque assim que o listener é registrado).
+ */
+export function listenForNotificationTaps(
+  onOpen: (data: { taskId?: string; boardId?: string; projectId?: string }) => void
+) {
+  if (!Capacitor.isNativePlatform()) return;
+
+  PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+    onOpen(action.notification.data || {});
+  });
+}
+
+/**
+ * Obtém o status da permissão atual de notificação
+ */
+export async function getNotificationPermissionStatus(): Promise<'granted' | 'denied' | 'default'> {
+  if (Capacitor.isNativePlatform()) {
+    const permission = await PushNotifications.checkPermissions();
+    if (permission.receive === 'granted') return 'granted';
+    if (permission.receive === 'denied') return 'denied';
+    return 'default';
+  } else {
+    if (!('Notification' in window)) {
+      return 'denied';
+    }
+    return Notification.permission;
+  }
+}
+</file>
+
+</files>

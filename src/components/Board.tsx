@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { supabase } from '../lib/supabase';
+import { getPriorityClasses } from '../lib/colors';
 import { ColumnContainer } from './ColumnContainer';
+import { BoardSkeleton } from './BoardSkeleton';
 import { CardModal } from './CardModal';
 import { ColumnModal } from './ColumnModal';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import {
-  Kanban, Sparkles, Loader2, RefreshCw, Plus, Users, Trash2,
-  Search, X, Download, HelpCircle, CheckSquare, FileText, FileSpreadsheet, ChevronDown
+  Kanban, Sparkles, RefreshCw, Plus, Users, Trash2,
+  Search, X, Download, HelpCircle, CheckSquare, FileText, FileSpreadsheet, ChevronDown, Filter
 } from 'lucide-react';
 import { useCustomModal } from './CustomModals';
 import { Logo } from './Logo';
@@ -124,6 +126,7 @@ export const Board: React.FC<BoardProps> = ({
   const [isMembersDrawerOpen, setIsMembersDrawerOpen] = useState(false);
   const [isAddingMemberMobile, setIsAddingMemberMobile] = useState(false);
   const [selectedMemberEmailMobile, setSelectedMemberEmailMobile] = useState('');
+  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
 
   const [editingColumn, setEditingColumn] = useState<Column | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -994,6 +997,126 @@ export const Board: React.FC<BoardProps> = ({
   };
   const boardBgClass = bgClasses[boardBackground] || bgClasses.zinc;
 
+  const activeFilterCount = (filterPriority !== 'all' ? 1 : 0) + (filterTag !== 'all' ? 1 : 0) + (isBulkMode ? 1 : 0);
+
+  const filterControls = (
+    <>
+      {/* Seletor de Prioridade */}
+      <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 text-xs">
+        <button
+          type="button"
+          onClick={() => setFilterPriority('all')}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+            filterPriority === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+          }`}
+        >
+          Todas
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterPriority('high')}
+          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+            filterPriority === 'high' ? getPriorityClasses('high', 'solid') : 'text-zinc-400 hover:text-red-400'
+          }`}
+        >
+          Alta
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterPriority('medium')}
+          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+            filterPriority === 'medium' ? getPriorityClasses('medium', 'solid') : 'text-zinc-400 hover:text-amber-400'
+          }`}
+        >
+          Média
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilterPriority('low')}
+          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+            filterPriority === 'low' ? getPriorityClasses('low', 'solid') : 'text-zinc-400 hover:text-emerald-400'
+          }`}
+        >
+          Baixa
+        </button>
+      </div>
+
+      {/* Filtro por Etiqueta */}
+      {projectLabels.length > 0 && (
+        <select
+          value={filterTag}
+          onChange={(e) => setFilterTag(e.target.value)}
+          className="bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-300 font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
+        >
+          <option value="all">🏷️ Etiquetas (Todas)</option>
+          {projectLabels.map((l) => (
+            <option key={l.name} value={l.name}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Alternar Modo de Seleção em Massa */}
+      <button
+        type="button"
+        onClick={() => {
+          setIsBulkMode((prev) => !prev);
+          if (isBulkMode) setSelectedTaskIds([]);
+        }}
+        title="Modo de Seleção em Massa (Atalho: B)"
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+          isBulkMode
+            ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/20'
+            : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
+        }`}
+      >
+        <CheckSquare size={13} />
+        <span>Seleção</span>
+        {selectedTaskIds.length > 0 && (
+          <span className="w-4 h-4 rounded-full bg-white text-indigo-950 font-extrabold text-[9px] flex items-center justify-center">
+            {selectedTaskIds.length}
+          </span>
+        )}
+      </button>
+
+      {/* Menu Dropdown de Exportação */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsExportMenuOpen((prev) => !prev)}
+          title="Exportar Quadro (Atalho: E)"
+          className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+        >
+          <Download size={13} />
+          <span>Exportar</span>
+          <ChevronDown size={12} className="text-zinc-500" />
+        </button>
+
+        {isExportMenuOpen && (
+          <div className="absolute right-0 mt-2 w-48 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl z-50 p-1 space-y-1 animate-in fade-in zoom-in-95">
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
+            >
+              <FileText size={14} className="text-indigo-400" />
+              <span>Exportar como JSON</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
+            >
+              <FileSpreadsheet size={14} className="text-emerald-400" />
+              <span>Exportar como CSV</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className={`flex-1 flex flex-col min-w-0 ${boardBgClass} relative pb-16 lg:pb-0 h-screen overflow-hidden`}>
       {/* Top Header Panel */}
@@ -1036,6 +1159,7 @@ export const Board: React.FC<BoardProps> = ({
                 }}
                 className="p-0.5 rounded-md text-zinc-400 hover:text-white"
                 title="Nova Sprint"
+                aria-label="Nova Sprint"
               >
                 <Plus size={10} />
               </button>
@@ -1123,6 +1247,7 @@ export const Board: React.FC<BoardProps> = ({
                 }}
                 className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-transparent hover:border-zinc-700"
                 title="Nova Sprint"
+                aria-label="Nova Sprint"
               >
                 <Plus size={11} />
               </button>
@@ -1148,6 +1273,7 @@ export const Board: React.FC<BoardProps> = ({
           <button
             onClick={fetchData}
             title="Recarregar Quadro"
+            aria-label="Recarregar Quadro"
             className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all active:rotate-45 shrink-0 shadow-md"
           >
             <RefreshCw size={13} className="md:size-[15px]" />
@@ -1181,7 +1307,7 @@ export const Board: React.FC<BoardProps> = ({
             className="w-full bg-transparent text-xs text-white placeholder-zinc-500 focus:outline-none font-medium"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="text-zinc-500 hover:text-white">
+            <button onClick={() => setSearchQuery('')} aria-label="Limpar busca" className="text-zinc-500 hover:text-white">
               <X size={12} />
             </button>
           )}
@@ -1190,132 +1316,36 @@ export const Board: React.FC<BoardProps> = ({
           </kbd>
         </div>
 
-        {/* Controles de Filtro e Ferramentas */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Seletor de Prioridade */}
-          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setFilterPriority('all')}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                filterPriority === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              Todas
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterPriority('high')}
-              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                filterPriority === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'text-zinc-400 hover:text-red-400'
-              }`}
-            >
-              Alta
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterPriority('medium')}
-              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                filterPriority === 'medium' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-zinc-400 hover:text-amber-400'
-              }`}
-            >
-              Média
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterPriority('low')}
-              className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                filterPriority === 'low' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-zinc-400 hover:text-emerald-400'
-              }`}
-            >
-              Baixa
-            </button>
-          </div>
-
-          {/* Filtro por Etiqueta */}
-          {projectLabels.length > 0 && (
-            <select
-              value={filterTag}
-              onChange={(e) => setFilterTag(e.target.value)}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-300 font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              <option value="all">🏷️ Etiquetas (Todas)</option>
-              {projectLabels.map((l) => (
-                <option key={l.name} value={l.name}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Alternar Modo de Seleção em Massa */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsBulkMode((prev) => !prev);
-              if (isBulkMode) setSelectedTaskIds([]);
-            }}
-            title="Modo de Seleção em Massa (Atalho: B)"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-              isBulkMode
-                ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/20'
-                : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700'
-            }`}
-          >
-            <CheckSquare size={13} />
-            <span className="hidden md:inline">Seleção</span>
-            {selectedTaskIds.length > 0 && (
-              <span className="w-4 h-4 rounded-full bg-white text-indigo-950 font-extrabold text-[9px] flex items-center justify-center">
-                {selectedTaskIds.length}
-              </span>
-            )}
-          </button>
-
-          {/* Menu Dropdown de Exportação */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsExportMenuOpen((prev) => !prev)}
-              title="Exportar Quadro (Atalho: E)"
-              className="flex items-center gap-1 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
-            >
-              <Download size={13} />
-              <span className="hidden md:inline">Exportar</span>
-              <ChevronDown size={12} className="text-zinc-500" />
-            </button>
-
-            {isExportMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl z-50 p-1 space-y-1 animate-in fade-in zoom-in-95">
-                <button
-                  type="button"
-                  onClick={handleExportJSON}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
-                >
-                  <FileText size={14} className="text-indigo-400" />
-                  <span>Exportar como JSON</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-900 rounded-lg transition-colors text-left cursor-pointer"
-                >
-                  <FileSpreadsheet size={14} className="text-emerald-400" />
-                  <span>Exportar como CSV</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Botão de Atalhos */}
-          <button
-            type="button"
-            onClick={() => setIsShortcutsModalOpen(true)}
-            title="Guia de Atalhos de Teclado (Atalho: ?)"
-            className="p-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-indigo-400 rounded-xl transition-all cursor-pointer"
-          >
-            <HelpCircle size={15} />
-          </button>
+        {/* Controles de Filtro e Ferramentas (desktop) */}
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
+          {filterControls}
         </div>
+
+        {/* Gatilho de Filtros (mobile) */}
+        <button
+          type="button"
+          onClick={() => setIsFiltersDrawerOpen(true)}
+          className="md:hidden relative flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer"
+        >
+          <Filter size={13} />
+          <span>Filtros</span>
+          {activeFilterCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-brand-accent text-white font-extrabold text-[9px] flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {/* Botão de Atalhos */}
+        <button
+          type="button"
+          onClick={() => setIsShortcutsModalOpen(true)}
+          title="Guia de Atalhos de Teclado (Atalho: ?)"
+          aria-label="Guia de Atalhos de Teclado"
+          className="p-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-indigo-400 rounded-xl transition-all cursor-pointer"
+        >
+          <HelpCircle size={15} />
+        </button>
       </div>
 
       {/* Banner de Filtro de Participante */}
@@ -1339,10 +1369,7 @@ export const Board: React.FC<BoardProps> = ({
       {/* Board Columns container */}
       <main className="flex-1 flex overflow-x-auto overflow-y-hidden px-4 lg:px-6 pt-4 pb-24 lg:py-6 snap-x snap-mandatory scroll-smooth min-h-0">
         {loading ? (
-          <div className="w-full h-[60vh] flex flex-col items-center justify-center text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-brand-accent" size={32} />
-            <span className="text-xs font-semibold tracking-wider">Carregando dados da Sprint...</span>
-          </div>
+          <BoardSkeleton />
         ) : (
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="all-columns" direction="horizontal" type="column">
@@ -1740,6 +1767,38 @@ export const Board: React.FC<BoardProps> = ({
                 )}
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer de Filtros (mobile) */}
+      {isFiltersDrawerOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center animate-fade-in"
+          onClick={() => setIsFiltersDrawerOpen(false)}
+        >
+          <div
+            className="w-full max-h-[85vh] bg-zinc-950/95 border-t border-zinc-800/80 rounded-t-3xl p-6 flex flex-col gap-4 shadow-2xl backdrop-blur-xl animate-slide-up text-zinc-100 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Filter size={18} className="text-brand-accent" />
+                <h3 className="text-sm font-bold text-white">Filtros</h3>
+              </div>
+              <button
+                onClick={() => setIsFiltersDrawerOpen(false)}
+                className="text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition-all text-xs font-semibold"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 flex flex-col items-stretch gap-3 overflow-y-auto pr-1 no-scrollbar">
+              {filterControls}
             </div>
           </div>
         </div>

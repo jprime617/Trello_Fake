@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface Column {
   id: string;
@@ -21,6 +22,8 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
   editingColumn,
 }) => {
   const [title, setTitle] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useModalA11y(isOpen, onClose, titleInputRef);
 
   useEffect(() => {
     if (editingColumn) {
@@ -41,10 +44,16 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm glass-panel rounded-2xl shadow-2xl overflow-hidden border border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="column-modal-title"
+        className="w-full max-w-sm glass-panel rounded-2xl shadow-2xl overflow-hidden border border-zinc-800 animate-in fade-in zoom-in-95 duration-200"
+      >
         {/* Modal Header */}
         <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40">
-          <h3 className="font-semibold text-white text-sm">
+          <h3 id="column-modal-title" className="font-semibold text-white text-sm">
             {editingColumn ? 'Editar Coluna' : 'Nova Coluna'}
           </h3>
           <button
@@ -62,9 +71,9 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
               Título da Coluna
             </label>
             <input
+              ref={titleInputRef}
               type="text"
               required
-              autoFocus
               placeholder="Ex: Em Homologação"
               value={title}
               onChange={(e) => setTitle(e.target.value)}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Droppable } from '@hello-pangea/dnd';
 import { CardItem } from './CardItem';
-import { Plus, Trash2, Edit2, FolderPlus } from 'lucide-react';
+import { Plus, Trash2, Edit2, FolderPlus, GripVertical } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -71,15 +71,19 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
   return (
     <div className="w-[300px] shrink-0 bg-zinc-950/40 border border-zinc-800/60 rounded-2xl flex flex-col h-full max-h-full overflow-hidden shadow-xl snap-center relative">
       {/* Column Header */}
-      <div
-        {...dragHandleProps}
-        className="p-4 border-b border-zinc-800/80 flex items-center justify-between gap-3 bg-zinc-950/80 cursor-grab active:cursor-grabbing select-none"
-      >
+      <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between gap-3 bg-zinc-950/80">
         <div className="flex items-center gap-2 min-w-0">
+          <div
+            {...dragHandleProps}
+            aria-label="Reordenar coluna"
+            className="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-400 shrink-0"
+          >
+            <GripVertical size={16} />
+          </div>
           <h3 className="font-semibold text-white truncate text-sm">
             {column.title}
           </h3>
-          <span className="shrink-0 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400">
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-2xs font-bold text-zinc-400">
             {sortedTasks.length}
           </span>
         </div>
@@ -87,6 +91,7 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
           <button
             onClick={() => onEditColumnClick(column)}
             title="Editar Título"
+            aria-label="Editar coluna"
             className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-400 hover:bg-zinc-900 transition-colors"
           >
             <Edit2 size={13} />
@@ -94,6 +99,7 @@ export const ColumnContainer: React.FC<ColumnContainerProps> = ({
           <button
             onClick={() => onDeleteColumnClick(column.id)}
             title="Excluir Coluna"
+            aria-label="Excluir coluna"
             className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-950/20 transition-colors"
           >
             <Trash2 size={13} />

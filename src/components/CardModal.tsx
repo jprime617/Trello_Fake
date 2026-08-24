@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { getLabelClasses, getPriorityClasses, PRIORITY_LABELS } from '../lib/colors';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { useCustomModal } from './CustomModals';
 import {
   X,
@@ -128,6 +130,8 @@ export const CardModal: React.FC<CardModalProps> = ({
 
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useModalA11y(isOpen, onClose, titleInputRef);
 
   const colors = [
     { value: 'indigo', label: 'Índigo' },
@@ -281,30 +285,23 @@ export const CardModal: React.FC<CardModalProps> = ({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const getTagColorClass = (color: string) => {
-    switch (color) {
-      case 'red': return 'bg-red-500/15 text-red-400 border border-red-500/30';
-      case 'emerald': return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      case 'amber': return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
-      case 'blue': return 'bg-blue-500/15 text-blue-400 border border-blue-500/30';
-      case 'purple': return 'bg-purple-500/15 text-purple-400 border border-purple-500/30';
-      case 'pink': return 'bg-pink-500/15 text-pink-400 border border-pink-500/30';
-      case 'indigo':
-      default: return 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30';
-    }
-  };
-
   const totalSub = subtasks.length;
   const completedSub = subtasks.filter((s) => s.is_completed).length;
   const progressPercent = totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0;
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="card-modal-title"
+        className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      >
 
         {/* Modal Header */}
         <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/40 shrink-0">
-          <h3 className="font-bold text-white text-sm flex items-center gap-2">
+          <h3 id="card-modal-title" className="font-bold text-white text-sm flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
             {editingTask ? 'Detalhes e Recursos da Tarefa' : 'Nova Tarefa'}
           </h3>
@@ -380,6 +377,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                   Título da Tarefa
                 </label>
                 <input
+                  ref={titleInputRef}
                   type="text"
                   required
                   placeholder="Ex: Criar modelo de dados da API"
@@ -446,21 +444,15 @@ export const CardModal: React.FC<CardModalProps> = ({
                 <div className="grid grid-cols-3 gap-3">
                   {(['low', 'medium', 'high'] as const).map((level) => {
                     const isSelected = priority === level;
-                    const labelsText = { low: 'Baixa', medium: 'Média', high: 'Alta' };
-                    const selectedColors = {
-                      low: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
-                      medium: 'bg-amber-500/20 text-amber-300 border-amber-500/50',
-                      high: 'bg-red-500/20 text-red-300 border-red-500/50',
-                    };
                     return (
                       <button
                         key={level}
                         type="button"
                         onClick={() => setPriority(level)}
-                        className={`py-2 px-3 border rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${isSelected ? selectedColors[level] : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        className={`py-2 px-3 border rounded-xl font-bold text-xs transition-all active:scale-[0.98] ${isSelected ? getPriorityClasses(level, 'solid') : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                           }`}
                       >
-                        {labelsText[level]}
+                        {PRIORITY_LABELS[level]}
                       </button>
                     );
                   })}
@@ -486,7 +478,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                   {labels.map((lbl, idx) => (
                     <span
                       key={idx}
-                      className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border flex items-center gap-1.5 ${getTagColorClass(lbl.color)}`}
+                      className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border flex items-center gap-1.5 ${getLabelClasses(lbl.color)}`}
                     >
                       <span>{lbl.name}</span>
                       <button type="button" onClick={() => handleRemoveTag(idx)} className="text-zinc-500 hover:text-white">
@@ -509,7 +501,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                           type="button"
                           onClick={() => handleToggleProjectTag(lbl)}
                           className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${isSelected
-                              ? `${getTagColorClass(lbl.color)} border-brand-accent/30 shadow-sm`
+                              ? `${getLabelClasses(lbl.color)} border-brand-accent/30 shadow-sm`
                               : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60'
                             }`}
                         >

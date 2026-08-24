@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Command, Search, Plus, Filter, CheckSquare, Download, HelpCircle } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const modalRef = useModalA11y(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const shortcuts = [
@@ -25,7 +28,13 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-zinc-950 border border-zinc-800/90 max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden animate-zoom-in">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcuts-modal-title"
+        className="bg-zinc-950 border border-zinc-800/90 max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden animate-zoom-in"
+      >
         {/* Header */}
         <div className="p-5 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/50">
           <div className="flex items-center gap-2.5">
@@ -33,7 +42,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
               <Command size={18} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Atalhos de Teclado</h3>
+              <h3 id="shortcuts-modal-title" className="text-sm font-bold text-white">Atalhos de Teclado</h3>
               <p className="text-[11px] text-zinc-400">Produtividade para Power Users</p>
             </div>
           </div>

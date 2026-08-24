@@ -32,3 +32,12 @@ google-services.json
 
 .venv
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { Calendar, AlignLeft, User, Eye, CheckSquare, Paperclip } from 'lucide-react';
+import { getLabelClasses, getPriorityClasses, getPriorityLabel } from '../lib/colors';
 
 interface Profile {
   id: string;
@@ -53,50 +54,6 @@ export const CardItem: React.FC<CardItemProps> = ({
   onToggleSelect,
 }) => {
   const assignee = profiles.find((p) => p.id === task.assignee_id);
-
-  const getPriorityStyles = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-500/10 text-red-400 border border-red-500/30';
-      case 'medium':
-        return 'bg-amber-500/10 text-amber-400 border border-amber-500/30';
-      case 'low':
-      default:
-        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
-    }
-  };
-
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'Alta';
-      case 'medium':
-        return 'Média';
-      case 'low':
-      default:
-        return 'Baixa';
-    }
-  };
-
-  const getLabelStyles = (color: string) => {
-    switch (color) {
-      case 'red':
-        return 'bg-red-500/15 text-red-400 border border-red-500/30';
-      case 'emerald':
-        return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-      case 'amber':
-        return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
-      case 'blue':
-        return 'bg-blue-500/15 text-blue-400 border border-blue-500/30';
-      case 'purple':
-        return 'bg-purple-500/15 text-purple-400 border border-purple-500/30';
-      case 'pink':
-        return 'bg-pink-500/15 text-pink-400 border border-pink-500/30';
-      case 'indigo':
-      default:
-        return 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30';
-    }
-  };
 
   const getInitials = (name: string) => {
     return name
@@ -166,7 +123,7 @@ export const CardItem: React.FC<CardItemProps> = ({
               {task.labels.map((lbl, idx) => (
                 <span
                   key={idx}
-                  className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide border ${getLabelStyles(
+                  className={`px-1.5 py-0.5 rounded text-3xs font-extrabold uppercase tracking-wide border ${getLabelClasses(
                     lbl.color
                   )}`}
                 >
@@ -192,14 +149,14 @@ export const CardItem: React.FC<CardItemProps> = ({
                 />
               )}
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${getPriorityStyles(
+                className={`text-2xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${getPriorityClasses(
                   task.priority
                 )}`}
               >
                 {getPriorityLabel(task.priority)}
               </span>
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500">
+            <div aria-hidden="true" className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500">
               <Eye size={14} className="hover:text-brand-accent" />
             </div>
           </div>
@@ -225,7 +182,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                 {totalSub > 0 && (
                   <div
                     title="Progresso do checklist"
-                    className={`flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded border transition-colors ${
+                    className={`flex items-center gap-1 text-3xs font-extrabold px-2 py-0.5 rounded border transition-colors ${
                       completedSub === totalSub
                         ? 'text-emerald-400 bg-emerald-950/20 border-emerald-800/20'
                         : 'text-zinc-400 bg-zinc-950/40 border-zinc-900/60'
@@ -242,7 +199,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                 {task.attachments && task.attachments.length > 0 && (
                   <div
                     title="Documentos anexados"
-                    className="flex items-center gap-1 text-[9px] font-extrabold text-zinc-400 bg-zinc-950/40 border border-zinc-900/60 px-2 py-0.5 rounded shrink-0"
+                    className="flex items-center gap-1 text-3xs font-extrabold text-zinc-400 bg-zinc-950/40 border border-zinc-900/60 px-2 py-0.5 rounded shrink-0"
                   >
                     <Paperclip size={10} className="shrink-0" />
                     <span>{task.attachments.length}</span>
@@ -253,7 +210,7 @@ export const CardItem: React.FC<CardItemProps> = ({
               {/* Checklist progress bar */}
               {totalSub > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[8px] font-bold text-zinc-500">
+                  <div className="flex items-center justify-between text-3xs font-bold text-zinc-500">
                     <span>Progresso do checklist</span>
                     <span className={completedSub === totalSub ? 'text-emerald-400 font-extrabold' : ''}>{progressPercent}%</span>
                   </div>
@@ -294,7 +251,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                 title={assignee.full_name}
                 className="flex items-center gap-1.5 shrink-0"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500/80 to-purple-600/80 text-white flex items-center justify-center font-bold text-[9px] border border-zinc-800/80 overflow-hidden select-none">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500/80 to-purple-600/80 text-white flex items-center justify-center font-bold text-3xs border border-zinc-800/80 overflow-hidden select-none">
                   {assignee.avatar_url ? (
                     <img src={assignee.avatar_url} alt={assignee.full_name} className="w-full h-full object-cover" />
                   ) : assignee.avatar_emoji ? (

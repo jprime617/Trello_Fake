@@ -1,0 +1,23 @@
+[project]
+name = "claude-boilerplate-project"
+version = "0.1.0"
+description = "Projeto baseado no Claude Ultimate Boilerplate."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6", "pytest>=8.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "templates", "tests"]
+
+[tool.ruff.lint]
+# E/F=pyflakes+pycodestyle, I=isort, UP=pyupgrade, B=bugbear, SIM=simplify.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-q"
