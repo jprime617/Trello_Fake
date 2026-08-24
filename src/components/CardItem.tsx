@@ -2,6 +2,7 @@ import React from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { Calendar, AlignLeft, User, Eye, CheckSquare, Paperclip } from 'lucide-react';
 import { getLabelClasses, getPriorityClasses, getPriorityLabel } from '../lib/colors';
+import { truncateText } from '../lib/text';
 
 interface Profile {
   id: string;
@@ -170,7 +171,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           {task.description && (
             <p className="text-xs text-zinc-400 line-clamp-2 mb-3.5 flex items-start gap-1 font-light leading-relaxed">
               <AlignLeft size={12} className="shrink-0 mt-0.5 text-zinc-500" />
-              <span>{task.description}</span>
+              <span>{truncateText(task.description)}</span>
             </p>
           )}
 
