@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import { listenForNotificationTaps } from './lib/pushNotifications';
+import { listenForNotificationTaps, ensureNotificationChannels } from './lib/pushNotifications';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { BottomNav } from './components/BottomNav';
@@ -449,6 +449,10 @@ function App() {
         setPendingDeepLink(data);
       }
     });
+
+    // Garante que os canais de notificação Android existam mesmo para quem já
+    // tinha registrado o dispositivo antes dessa correção (sem precisar reativar o toggle).
+    ensureNotificationChannels();
   }, []);
 
   // Assim que o projeto do deep-link estiver disponível, torna-o ativo

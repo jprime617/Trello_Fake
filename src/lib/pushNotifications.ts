@@ -72,6 +72,35 @@ export async function removePushToken(token: string) {
 /**
  * Registra notificações no dispositivo atual e solicita permissões
  */
+/**
+ * Cria os canais de notificação Android referenciados pelo backend
+ * (check-deadlines.ts e a edge function chat). No Android 8+ (API 26+),
+ * uma notificação enviada para um channelId que o app nunca criou é
+ * descartada silenciosamente pelo sistema — por isso isso precisa
+ * rodar antes de qualquer push chegar, não só na primeira vez.
+ */
+export async function ensureNotificationChannels() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await PushNotifications.createChannel({
+      id: 'chat_messages',
+      name: 'Mensagens de Chat',
+      description: 'Avisos de novas mensagens nos chats das tasks',
+      importance: 4,
+      visibility: 1,
+    });
+    await PushNotifications.createChannel({
+      id: 'task_deadlines',
+      name: 'Prazos de Tasks',
+      description: 'Avisos de vencimento de tasks atribuídas a você',
+      importance: 4,
+      visibility: 1,
+    });
+  } catch (err) {
+    console.error('Erro ao criar canais de notificação Android:', err);
+  }
+}
+
 export async function registerPushNotifications(userId: string): Promise<string> {
   const isNative = Capacitor.isNativePlatform();
 
@@ -79,6 +108,8 @@ export async function registerPushNotifications(userId: string): Promise<string>
     // -------------------------------------------------------------
     // FLUXO DO APLICATIVO NATIVO (Capacitor/Android APK)
     // -------------------------------------------------------------
+    await ensureNotificationChannels();
+
     return new Promise((resolve, reject) => {
       // 1. Solicita permissão para receber notificações no Android/iOS
       PushNotifications.requestPermissions().then((permission) => {
