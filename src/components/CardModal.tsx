@@ -397,8 +397,8 @@ export const CardModal: React.FC<CardModalProps> = ({
                   placeholder="Descreva a tarefa em detalhes para ajudar o grupo..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-xs resize-none font-light leading-relaxed"
+                  rows={6}
+                  className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-xs resize-y min-h-[120px] max-h-[400px] font-light leading-relaxed"
                 />
               </div>
 
